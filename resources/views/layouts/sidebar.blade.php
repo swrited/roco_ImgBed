@@ -3,6 +3,9 @@
     'left-0': $store.sidebar.open
 }">
     <div class="px-6 h-14 flex justify-between sm:justify-center items-center border-b border-white/10 text-white text-xl">
+        @if($logo = \App\Utils::config(\App\Enums\ConfigKey::SiteLogoUrl))
+            <img src="{{ $logo }}" alt="Logo" class="sidebar-logo">
+        @endif
         <a href="/" class="truncate font-semibold tracking-tight">{{ \App\Utils::config(\App\Enums\ConfigKey::AppName) }}</a>
         <a href="javascript:void(0)" class="sm:hidden block" @click="$store.sidebar.open = false"><i class="fas fa-times"></i></a>
     </div>

@@ -4,7 +4,12 @@
             <a href="javascript:void(0)" @click="$store.sidebar.toggle()" class="w-6 h-6 p-4 rounded-full sm:hidden -ml-1 mr-4 flex justify-center items-center">
                 <i class="fas fa-bars text-xl"></i>
             </a>
-            <a href="" class="text-lg font-semibold tracking-tight truncate" id="header-title">@yield('title', \App\Utils::config(\App\Enums\ConfigKey::AppName))</a>
+            <a href="" class="text-lg font-semibold tracking-tight truncate flex items-center" id="header-title">
+                @if($logo = \App\Utils::config(\App\Enums\ConfigKey::SiteLogoUrl))
+                    <img src="{{ $logo }}" alt="Logo" class="header-logo">
+                @endif
+                @yield('title', \App\Utils::config(\App\Enums\ConfigKey::AppName))
+            </a>
         </div>
         <div class="flex justify-end items-center space-x-4">
             @includeWhen($_is_notice, 'layouts.notice')

@@ -29,6 +29,14 @@
                     <label for="site_notice" class="block text-sm font-medium text-gray-700">网站公告</label>
                     <x-textarea type="text" name="site_notice" id="site_notice" placeholder="首页弹出公告，支持 Markdown，不设置请留空。" rows="7">{{ $configs->get('site_notice') }}</x-textarea>
                 </div>
+                <div>
+                    <label for="site_logo_url" class="block text-sm font-medium text-gray-700">网站 Logo</label>
+                    <x-input type="url" name="site_logo_url" id="site_logo_url" value="{{ $configs->get('site_logo_url') }}" placeholder="Logo 图片 URL，留空则显示文字标题。建议正方形，推荐 64×64 px"/>
+                </div>
+                <div>
+                    <label for="site_background_url" class="block text-sm font-medium text-gray-700">网站背景图</label>
+                    <x-input type="url" name="site_background_url" id="site_background_url" value="{{ $configs->get('site_background_url') }}" placeholder="背景图片 URL，留空则使用纯色背景。建议深色调"/>
+                </div>
 
                 <div class="text-right">
                     <x-button type="submit">保存更改</x-button>

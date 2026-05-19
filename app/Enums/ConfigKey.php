@@ -45,4 +45,10 @@ final class ConfigKey
 
     /** @var string 角色组默认配置 */
     const Group = 'group';
+
+    /** @var string 网站背景图 URL */
+    const SiteBackgroundUrl = 'site_background_url';
+
+    /** @var string 网站 Logo URL */
+    const SiteLogoUrl = 'site_logo_url';
 }

@@ -19,7 +19,8 @@
     <!-- Dark theme + glass morphism -->
     <link rel="stylesheet" href="{{ asset('css/theme.css') }}?t=20250520">
 </head>
-<body class="font-sans antialiased overflow-hidden">
+<body class="font-sans antialiased overflow-hidden {{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? 'has-bg-image' : '' }}" 
+      style="{{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? '--bg-image: url(' . e(\App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl)) . ');' : '' }}">
 <div class="min-h-screen bg-gray-100" x-data x-cloak>
     @include('layouts.sidebar')
     @include('layouts.header')

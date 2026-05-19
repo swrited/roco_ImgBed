@@ -19,7 +19,8 @@
         <!-- Dark theme + glass morphism -->
         <link rel="stylesheet" href="{{ asset('css/theme.css') }}?t=20250520">
     </head>
-    <body class="font-sans antialiased">
+    <body class="font-sans antialiased {{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? 'has-bg-image' : '' }}" 
+          style="{{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? '--bg-image: url(' . e(\App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl)) . ');' : '' }}">
         <div class="min-h-screen text-gray-900 bg-gray-100">
             {{ $slot }}
         </div>
