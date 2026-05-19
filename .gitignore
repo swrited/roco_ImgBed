@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/public/storage/
+/storage/framework/cache/
+/storage/framework/sessions/
+/storage/framework/views/
+/storage/logs/
+.env
+.phpunit.result.cache
+.DS_Store
+*.sqlite
+installed.lock

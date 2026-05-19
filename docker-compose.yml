@@ -1,0 +1,21 @@
+services:
+  lsky-php:
+    image: lsky-php:custom
+    container_name: lsky-php
+    restart: unless-stopped
+    command: sh -c "chmod -R 755 /var/www/html/storage/app/uploads && exec php-fpm"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/php-custom.ini:/usr/local/etc/php/conf.d/php-custom.ini:ro
+
+  lsky-nginx:
+    image: nginx:alpine
+    container_name: lsky-nginx
+    restart: unless-stopped
+    ports:
+      - "7659:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - lsky-php

@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>随机图片 API 测试</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px; }
+  h1 { font-size: 1.5rem; margin-bottom: 20px; color: #38bdf8; }
+  .grid { display: grid; grid-template-columns: 400px 1fr; gap: 24px; max-width: 1400px; margin: 0 auto; }
+  .panel { background: #1e293b; border-radius: 12px; padding: 20px; }
+  label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; margin-top: 12px; }
+  input, select { width: 100%; padding: 8px 12px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: #e2e8f0; font-size: 14px; }
+  input:focus, select:focus { outline: none; border-color: #38bdf8; }
+  .row { display: flex; gap: 8px; }
+  .row > div { flex: 1; }
+  button { width: 100%; margin-top: 20px; padding: 10px; border: none; border-radius: 8px; background: #38bdf8; color: #0f172a; font-size: 15px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #7dd3fc; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #result { margin-top: 16px; }
+  #result img { max-width: 100%; max-height: 500px; border-radius: 8px; display: block; margin-bottom: 12px; }
+  .kv { display: flex; gap: 8px; font-size: 13px; margin: 2px 0; }
+  .kv .k { color: #94a3b8; min-width: 100px; }
+  .kv .v { color: #e2e8f0; word-break: break-all; }
+  .empty { color: #f87171; padding: 12px; background: #450a0a; border-radius: 8px; }
+  .links-section { margin-top: 12px; }
+  .links-section a { display: block; color: #38bdf8; font-size: 12px; word-break: break-all; margin: 4px 0; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; margin-right: 4px; }
+  .badge-land { background: #166534; color: #4ade80; }
+  .badge-port { background: #581c87; color: #c084fc; }
+  .badge-sq { background: #713f12; color: #fbbf24; }
+</style>
+</head>
+<body>
+<div class="grid">
+  <div class="panel">
+    <h1>🎲 随机图片接口测试</h1>
+
+    <label>Token</label>
+    <input id="token" value="1|e9MYMHiyv9DxGczLZaI9RgZbsw1aGonhF230liO8" placeholder="Bearer Token">
+
+    <label>画幅方向</label>
+    <select id="orientation">
+      <option value="">不限</option>
+      <option value="landscape">横版 Landscape</option>
+      <option value="portrait">竖版 Portrait</option>
+      <option value="square">正方形 Square</option>
+    </select>
+
+    <label>画幅比例</label>
+    <select id="ratioSelect" onchange="document.getElementById('ratio').value=this.value">
+      <option value="">不限</option>
+      <option value="16:9">16:9</option>
+      <option value="4:3">4:3</option>
+      <option value="3:2">3:2</option>
+      <option value="1:1">1:1</option>
+      <option value="9:16">9:16</option>
+      <option value="3:4">3:4</option>
+    </select>
+    <input id="ratio" placeholder="或自定义比例 (如 1.778)" style="margin-top:4px;">
+
+    <div class="row">
+      <div>
+        <label>最小宽度 (px)</label>
+        <input id="min_width" type="number" placeholder="如 800">
+      </div>
+      <div>
+        <label>最大宽度 (px)</label>
+        <input id="max_width" type="number" placeholder="如 1920">
+      </div>
+    </div>
+
+    <div class="row">
+      <div>
+        <label>最小高度 (px)</label>
+        <input id="min_height" type="number" placeholder="如 600">
+      </div>
+      <div>
+        <label>最大高度 (px)</label>
+        <input id="max_height" type="number" placeholder="如 1080">
+      </div>
+    </div>
+
+    <label>相册 ID (0=未分类)</label>
+    <input id="album_id" type="number" placeholder="留空不限">
+
+    <button onclick="fetchRandom()">🎲 随机一张</button>
+    <button onclick="fetchRandom()" style="background:#475569;color:#e2e8f0;margin-top:8px;" id="btn10">连续 10 次</button>
+
+    <div id="status" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
+  </div>
+
+  <div class="panel" id="resultPanel">
+    <p style="color:#64748b;">点击「随机一张」开始测试...</p>
+  </div>
+</div>
+
+<script>
+let count = 0;
+document.getElementById('btn10').onclick = () => { count=0; run10(); };
+
+async function run10() {
+  const btn = document.getElementById('btn10');
+  btn.disabled = true;
+  for (let i = 0; i < 10; i++) {
+    btn.textContent = `连续 10 次 (${i+1}/10)`;
+    await fetchRandom(true);
+    await new Promise(r => setTimeout(r, 300));
+  }
+  btn.disabled = false;
+  btn.textContent = '连续 10 次';
+}
+
+async function fetchRandom(silent) {
+  const token = document.getElementById('token').value.trim();
+  if (!token) { alert('请填写 Token'); return; }
+
+  const params = new URLSearchParams();
+  const orientation = document.getElementById('orientation').value;
+  const ratio = document.getElementById('ratio').value.trim();
+  const min_w = document.getElementById('min_width').value;
+  const max_w = document.getElementById('max_width').value;
+  const min_h = document.getElementById('min_height').value;
+  const max_h = document.getElementById('max_height').value;
+  const album_id = document.getElementById('album_id').value;
+
+  if (orientation) params.set('orientation', orientation);
+  if (ratio) params.set('ratio', ratio);
+  if (min_w) params.set('min_width', min_w);
+  if (max_w) params.set('max_width', max_w);
+  if (min_h) params.set('min_height', min_h);
+  if (max_h) params.set('max_height', max_h);
+  if (album_id !== '') params.set('album_id', album_id);
+
+  const url = '/api/v1/images/random' + (params.toString() ? '?' + params.toString() : '');
+  document.getElementById('status').textContent = '请求中... ' + url;
+
+  try {
+    const resp = await fetch(url, {
+      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
+    });
+    const data = await resp.json();
+    count++;
+    if (!silent) render(data, url);
+    else renderMini(data, count);
+  } catch (e) {
+    if (!silent) document.getElementById('resultPanel').innerHTML = `<div class="empty">请求失败: ${e.message}</div>`;
+  }
+  document.getElementById('status').textContent = '';
+}
+
+function render(data, url) {
+  const panel = document.getElementById('resultPanel');
+  if (!data.status) {
+    panel.innerHTML = `<div class="empty">❌ ${data.message}</div><p style="font-size:11px;color:#64748b;margin-top:8px;">${url}</p>`;
+    return;
+  }
+  const d = data.data;
+  const w = d.width, h = d.height;
+  const ratio = (w/h).toFixed(3);
+  let orient = '';
+  if (w > h) orient = '<span class="badge badge-land">横版</span>';
+  else if (w < h) orient = '<span class="badge badge-port">竖版</span>';
+  else orient = '<span class="badge badge-sq">正方</span>';
+
+  panel.innerHTML = `
+    <img src="${d.links.url}" alt="${d.origin_name}">
+    <div class="kv"><span class="k">文件名</span><span class="v">${d.origin_name}</span></div>
+    <div class="kv"><span class="k">尺寸</span><span class="v">${w} × ${h} ${orient} (${ratio})</span></div>
+    <div class="kv"><span class="k">大小</span><span class="v">${d.size.toFixed(1)} KB</span></div>
+    <div class="kv"><span class="k">key</span><span class="v">${d.key}</span></div>
+    <div class="kv"><span class="k">md5</span><span class="v">${d.md5}</span></div>
+    <div class="links-section">
+      <a href="${d.links.url}" target="_blank">🔗 原图</a>
+      <span style="font-size:11px;color:#64748b;display:block;margin-top:4px;">markdown: ![](${d.links.url})</span>
+    </div>
+  `;
+}
+
+let miniHTML = '';
+function renderMini(data, n) {
+  if (!data.status) {
+    miniHTML += `<span style="color:#f87171;font-size:12px;">#${n}: ${data.message}</span> `;
+  } else {
+    const d = data.data;
+    miniHTML += `<span style="font-size:12px;color:#38bdf8;">#${n}:</span> ${d.width}x${d.height} `;
+  }
+  document.getElementById('resultPanel').innerHTML = `<div style="line-height:1.8;">${miniHTML}</div>`;
+  if (n === 10) miniHTML = '';
+}
+</script>
+</body>
+</html>
