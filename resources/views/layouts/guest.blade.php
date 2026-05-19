@@ -17,7 +17,7 @@
         <link rel="stylesheet" href="{{ asset('css/common.css') }}?t=20220817">
         <link rel="stylesheet" href="{{ asset('css/app.css') }}?t=20220817">
         <!-- Dark theme + glass morphism -->
-        <link rel="stylesheet" href="{{ asset('css/theme.css') }}?t=20250520">
+        <link rel="stylesheet" href="{{ asset('css/theme-v2.css') }}?v=2">
     </head>
     <body class="font-sans antialiased {{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? 'has-bg-image' : '' }}" 
           style="{{ \App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl) ? '--bg-image: url(' . e(\App\Utils::config(\App\Enums\ConfigKey::SiteBackgroundUrl)) . ');' : '' }}">
