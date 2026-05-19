@@ -7,18 +7,21 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 24px; }
-  h1 { font-size: 1.5rem; margin-bottom: 20px; color: #38bdf8; }
-  .grid { display: grid; grid-template-columns: 400px 1fr; gap: 24px; max-width: 1400px; margin: 0 auto; }
+  h1 { font-size: 1.3rem; margin-bottom: 16px; color: #38bdf8; }
+  h2 { font-size: 1rem; color: #38bdf8; margin: 16px 0 8px; padding-bottom: 4px; border-bottom: 1px solid #334155; }
+  .grid { display: grid; grid-template-columns: 440px 1fr; gap: 24px; max-width: 1400px; margin: 0 auto; }
   .panel { background: #1e293b; border-radius: 12px; padding: 20px; }
-  label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; margin-top: 12px; }
+  label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 4px; margin-top: 10px; }
   input, select { width: 100%; padding: 8px 12px; border: 1px solid #334155; border-radius: 8px; background: #0f172a; color: #e2e8f0; font-size: 14px; }
   input:focus, select:focus { outline: none; border-color: #38bdf8; }
   .row { display: flex; gap: 8px; }
   .row > div { flex: 1; }
-  button { width: 100%; margin-top: 20px; padding: 10px; border: none; border-radius: 8px; background: #38bdf8; color: #0f172a; font-size: 15px; font-weight: 600; cursor: pointer; }
-  button:hover { background: #7dd3fc; }
+  button { padding: 10px 16px; border: none; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; }
+  .btn-primary { width: 100%; margin-top: 16px; background: #38bdf8; color: #0f172a; }
+  .btn-primary:hover { background: #7dd3fc; }
+  .btn-secondary { background: #475569; color: #e2e8f0; }
+  .btn-secondary:hover { background: #64748b; }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  #result { margin-top: 16px; }
   #result img { max-width: 100%; max-height: 500px; border-radius: 8px; display: block; margin-bottom: 12px; }
   .kv { display: flex; gap: 8px; font-size: 13px; margin: 2px 0; }
   .kv .k { color: #94a3b8; min-width: 100px; }
@@ -30,6 +33,8 @@
   .badge-land { background: #166534; color: #4ade80; }
   .badge-port { background: #581c87; color: #c084fc; }
   .badge-sq { background: #713f12; color: #fbbf24; }
+  .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+  .btn-row button { flex: 1; }
 </style>
 </head>
 <body>
@@ -37,8 +42,23 @@
   <div class="panel">
     <h1>🎲 随机图片接口测试</h1>
 
+    <label>API 地址</label>
+    <input id="baseUrl" value="/api/v1/images/random" style="font-size:12px;">
+
     <label>Token</label>
     <input id="token" value="1|e9MYMHiyv9DxGczLZaI9RgZbsw1aGonhF230liO8" placeholder="Bearer Token">
+
+    <h2>📷 筛选参数</h2>
+
+    <label>返回模式</label>
+    <select id="type">
+      <option value="">json（默认）</option>
+      <option value="url">url（纯文本链接）</option>
+      <option value="redirect">redirect（302跳转）</option>
+    </select>
+
+    <label>指定图片 ID（非随机）</label>
+    <input id="i" type="number" placeholder="留空=随机">
 
     <label>画幅方向</label>
     <select id="orientation">
@@ -58,47 +78,50 @@
       <option value="9:16">9:16</option>
       <option value="3:4">3:4</option>
     </select>
-    <input id="ratio" placeholder="或自定义比例 (如 1.778)" style="margin-top:4px;">
+    <input id="ratio" placeholder="或自定义 (如 1.778)" style="margin-top:4px;">
 
     <div class="row">
-      <div>
-        <label>最小宽度 (px)</label>
-        <input id="min_width" type="number" placeholder="如 800">
-      </div>
-      <div>
-        <label>最大宽度 (px)</label>
-        <input id="max_width" type="number" placeholder="如 1920">
-      </div>
+      <div><label>最小宽度 (px)</label><input id="min_width" type="number" placeholder="800"></div>
+      <div><label>最大宽度 (px)</label><input id="max_width" type="number" placeholder="1920"></div>
     </div>
-
     <div class="row">
-      <div>
-        <label>最小高度 (px)</label>
-        <input id="min_height" type="number" placeholder="如 600">
-      </div>
-      <div>
-        <label>最大高度 (px)</label>
-        <input id="max_height" type="number" placeholder="如 1080">
-      </div>
+      <div><label>最小高度 (px)</label><input id="min_height" type="number" placeholder="600"></div>
+      <div><label>最大高度 (px)</label><input id="max_height" type="number" placeholder="1080"></div>
     </div>
 
-    <label>相册 ID (0=未分类)</label>
-    <input id="album_id" type="number" placeholder="留空不限">
+    <label>相册（名称 如 cat，或 ID 如 3）</label>
+    <input id="album" placeholder="留空不限">
 
-    <button onclick="fetchRandom()">🎲 随机一张</button>
-    <button onclick="fetchRandom()" style="background:#475569;color:#e2e8f0;margin-top:8px;" id="btn10">连续 10 次</button>
+    <h2>🖼 CDN 处理</h2>
+    <div class="row">
+      <div><label>缩放宽度 (w)</label><input id="w" type="number" placeholder="如 400"></div>
+      <div><label>缩放高度 (h)</label><input id="h" type="number" placeholder="如 300"></div>
+    </div>
+    <label>格式转换</label>
+    <select id="format">
+      <option value="">原格式</option>
+      <option value="webp">WebP</option>
+      <option value="jpg">JPG</option>
+      <option value="png">PNG</option>
+    </select>
+
+    <div class="btn-row">
+      <button class="btn-primary" onclick="fetchRandom()">🎲 随机一张</button>
+      <button class="btn-secondary" onclick="fetchAdaptive()">📱 自适应</button>
+    </div>
+    <button class="btn-secondary" onclick="count=0; run10()" id="btn10" style="margin-top:8px;width:100%;">连续 10 次</button>
 
     <div id="status" style="margin-top:8px;font-size:12px;color:#64748b;"></div>
   </div>
 
   <div class="panel" id="resultPanel">
-    <p style="color:#64748b;">点击「随机一张」开始测试...</p>
+    <p style="color:#64748b;">点击按钮开始测试...</p>
   </div>
 </div>
 
 <script>
 let count = 0;
-document.getElementById('btn10').onclick = () => { count=0; run10(); };
+document.getElementById('btn10').onclick = () => { count=0; miniHTML=''; run10(); };
 
 async function run10() {
   const btn = document.getElementById('btn10');
@@ -112,34 +135,64 @@ async function run10() {
   btn.textContent = '连续 10 次';
 }
 
-async function fetchRandom(silent) {
-  const token = document.getElementById('token').value.trim();
-  if (!token) { alert('请填写 Token'); return; }
-
+function buildParams() {
   const params = new URLSearchParams();
+  const type = document.getElementById('type').value;
+  const i = document.getElementById('i').value;
   const orientation = document.getElementById('orientation').value;
   const ratio = document.getElementById('ratio').value.trim();
   const min_w = document.getElementById('min_width').value;
   const max_w = document.getElementById('max_width').value;
   const min_h = document.getElementById('min_height').value;
   const max_h = document.getElementById('max_height').value;
-  const album_id = document.getElementById('album_id').value;
+  const album = document.getElementById('album').value.trim();
+  const w = document.getElementById('w').value;
+  const h = document.getElementById('h').value;
+  const format = document.getElementById('format').value;
 
+  if (type) params.set('type', type);
+  if (i) params.set('i', i);
   if (orientation) params.set('orientation', orientation);
   if (ratio) params.set('ratio', ratio);
   if (min_w) params.set('min_width', min_w);
   if (max_w) params.set('max_width', max_w);
   if (min_h) params.set('min_height', min_h);
   if (max_h) params.set('max_height', max_h);
-  if (album_id !== '') params.set('album_id', album_id);
+  if (album) params.set('album', album);
+  if (w) params.set('w', w);
+  if (h) params.set('h', h);
+  if (format) params.set('format', format);
+  return params;
+}
 
-  const url = '/api/v1/images/random' + (params.toString() ? '?' + params.toString() : '');
-  document.getElementById('status').textContent = '请求中... ' + url;
+async function fetchRandom(silent) {
+  const token = document.getElementById('token').value.trim();
+  if (!token) { alert('请填写 Token'); return; }
+
+  const base = document.getElementById('baseUrl').value || '/api/v1/images/random';
+  const params = buildParams();
+  const url = base + (params.toString() ? '?' + params.toString() : '');
+  document.getElementById('status').textContent = '请求: ' + url;
 
   try {
-    const resp = await fetch(url, {
-      headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }
-    });
+    const resp = await fetch(url, { headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' } });
+    if (resp.headers.get('content-type')?.includes('text/plain')) {
+      const text = await resp.text();
+      if (!silent) {
+        document.getElementById('resultPanel').innerHTML = `<div class="kv"><span class="k">URL</span><span class="v"><a href="${text}" target="_blank" style="color:#38bdf8;word-break:break-all;">${text}</a></span></div>`;
+      } else {
+        count++;
+        miniHTML += `<span style="font-size:12px;color:#38bdf8;">#${count}:</span> <a href="${text}" target="_blank" style="color:#38bdf8;font-size:11px;">${text.substring(0,60)}...</a><br>`;
+        document.getElementById('resultPanel').innerHTML = `<div style="line-height:1.6;">${miniHTML}</div>`;
+      }
+      document.getElementById('status').textContent = '';
+      return;
+    }
+    if (resp.status === 302 || resp.status === 301) {
+      if (!silent) document.getElementById('resultPanel').innerHTML = '<div class="kv"><span class="k">重定向</span><span class="v">302 → 图片</span></div>';
+      document.getElementById('status').textContent = '';
+      return;
+    }
     const data = await resp.json();
     count++;
     if (!silent) render(data, url);
@@ -148,6 +201,14 @@ async function fetchRandom(silent) {
     if (!silent) document.getElementById('resultPanel').innerHTML = `<div class="empty">请求失败: ${e.message}</div>`;
   }
   document.getElementById('status').textContent = '';
+}
+
+async function fetchAdaptive() {
+  document.getElementById('baseUrl').value = '/api/v1/images/adaptive';
+  document.getElementById('type').value = ''; // adaptive works best with json
+  document.getElementById('i').value = '';
+  await fetchRandom(false);
+  document.getElementById('baseUrl').value = '/api/v1/images/random';
 }
 
 function render(data, url) {
@@ -181,12 +242,12 @@ function render(data, url) {
 let miniHTML = '';
 function renderMini(data, n) {
   if (!data.status) {
-    miniHTML += `<span style="color:#f87171;font-size:12px;">#${n}: ${data.message}</span> `;
+    miniHTML += `<span style="color:#f87171;font-size:12px;">#${n}: ${data.message}</span><br>`;
   } else {
     const d = data.data;
-    miniHTML += `<span style="font-size:12px;color:#38bdf8;">#${n}:</span> ${d.width}x${d.height} `;
+    miniHTML += `<span style="font-size:12px;color:#38bdf8;">#${n}:</span> ${d.width}x${d.height} ${d.origin_name}<br>`;
   }
-  document.getElementById('resultPanel').innerHTML = `<div style="line-height:1.8;">${miniHTML}</div>`;
+  document.getElementById('resultPanel').innerHTML = `<div style="line-height:1.6;">${miniHTML}</div>`;
   if (n === 10) miniHTML = '';
 }
 </script>

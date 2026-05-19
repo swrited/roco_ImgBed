@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Exceptions\UploadException;
 use App\Http\Controllers\Controller;
 use App\Models\Image;
+use App\Models\Album;
 use App\Models\User;
 use App\Services\ImageService;
 use App\Services\UserService;
 use App\Utils;
 use Illuminate\Auth\AuthenticationException;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Auth;
@@ -81,19 +83,38 @@ class ImageController extends Controller
         return $this->success('删除成功');
     }
 
-    public function random(Request $request): Response
+    public function random(Request $request): Response|RedirectResponse
     {
         /** @var User $user */
         $user = Auth::user();
 
+        // 指定图片 ID（非随机）
+        if ($id = $request->query('i')) {
+            $image = $user->images()->find((int) $id);
+            if (! $image) {
+                return $this->fail('图片不存在');
+            }
+            return $this->returnImage(null, $image, $request);
+        }
+
         $query = $user->images();
 
-        // 相册筛选
-        if ($request->has('album_id')) {
-            $albumId = (int) $request->query('album_id');
-            $albumId === 0
-                ? $query->whereNull('album_id')
-                : $query->where('album_id', $albumId);
+        // 相册筛选 — 支持 album_id (兼容旧版) 和 album (名称或ID)
+        $album = $request->query('album', $request->query('album_id'));
+        if ($album !== null) {
+            if (is_numeric($album)) {
+                $albumId = (int) $album;
+                $albumId === 0
+                    ? $query->whereNull('album_id')
+                    : $query->where('album_id', $albumId);
+            } else {
+                $albumModel = Album::where('name', $album)->first();
+                if ($albumModel) {
+                    $query->where('album_id', $albumModel->id);
+                } else {
+                    return $this->fail('相册不存在');
+                }
+            }
         }
 
         // 尺寸范围
@@ -134,7 +155,7 @@ class ImageController extends Controller
             $query->whereRaw("width * 1.0 / height BETWEEN {$lo} AND {$hi}");
         }
 
-        return $this->returnImage($query);
+        return $this->returnImage($query, null, $request);
     }
 
     /**
@@ -149,7 +170,7 @@ class ImageController extends Controller
      *
      * 渐进回退：精确匹配失败 → 只按方向 → 完全随机
      */
-    public function adaptive(Request $request): Response
+    public function adaptive(Request $request): Response|RedirectResponse
     {
         /** @var User $user */
         $user = Auth::user();
@@ -192,7 +213,7 @@ class ImageController extends Controller
             $this->applyRatio($query1, $ratio);
             $image = $query1->inRandomOrder()->first();
             if ($image) {
-                return $this->returnImage($query1, $image);
+                return $this->returnImage($query1, $image, $request);
             }
         }
 
@@ -201,11 +222,11 @@ class ImageController extends Controller
         $this->applyOrientation($query2, $orientation);
         $image = $query2->inRandomOrder()->first();
         if ($image) {
-            return $this->returnImage($query2, $image);
+            return $this->returnImage($query2, $image, $request);
         }
 
         // --- 第三轮：完全随机 ---
-        return $this->returnImage($baseQuery);
+        return $this->returnImage($baseQuery, null, $request);
     }
 
     private function applyOrientation($query, string $orientation): void
@@ -231,12 +252,51 @@ class ImageController extends Controller
         $query->whereRaw("width * 1.0 / height BETWEEN {$lo} AND {$hi}");
     }
 
-    private function returnImage($query, $image = null): Response
+    private function returnImage($query, $image = null, $request = null): Response|RedirectResponse
     {
         $image ??= $query->inRandomOrder()->first();
 
         if (! $image) {
             return $this->fail('没有符合条件的图片');
+        }
+
+        // 可选 CDN 处理参数: format(jpg/webp/png), w, h
+        $processParams = [];
+        if ($request) {
+            $format = $request->query('format');
+            $w = $request->query('w');
+            $h = $request->query('h');
+
+            $mogrify = [];
+            if ($format && in_array($format, ['jpg', 'webp', 'png'])) {
+                $mogrify[] = "format/{$format}";
+            }
+            if ($w || $h) {
+                $tw = $w ? (int) $w : '';
+                $th = $h ? (int) $h : '';
+                $mogrify[] = "thumbnail/{$tw}x{$th}";
+            }
+            if ($mogrify) {
+                $processParams[] = 'imageMogr2/' . implode('/', $mogrify);
+            }
+
+            // 返回类型
+            $type = $request->query('type', 'json');
+            $image->append(['pathname', 'links']);
+            $url = ($image->links['url'] ?? $image->pathname) ?: '';
+
+            // 拼接 COS 处理参数到 URL
+            if ($processParams && $url) {
+                $sep = str_contains($url, '?') ? '&' : '?';
+                $url .= $sep . implode('|', $processParams);
+            }
+
+            if ($type === 'redirect') {
+                return redirect()->away($url);
+            }
+            if ($type === 'url') {
+                return response($url, 200)->header('Content-Type', 'text/plain');
+            }
         }
 
         $image->human_date = $image->created_at->diffForHumans();
