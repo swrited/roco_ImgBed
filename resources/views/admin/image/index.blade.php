@@ -4,7 +4,7 @@
     <div class="p-2">
         <form class="w-full flex items-center justify-center py-3 md:py-5 lg:py-7" action="{{ route('admin.images') }}" method="get">
             <div class="w-full md:w-[70%] lg:w-[60%] flex flex-col">
-                <input class="px-4 py-2 text-md rounded-md bg-white" name="keywords" placeholder="输入关键字回车搜索..." value="{{ request('keywords') }}" />
+                <input class="px-4 py-2.5 text-sm rounded-xl bg-white/5 border border-white/10 focus:border-violet-500 focus:ring-2 focus:ring-violet-500/20 outline-none transition-all w-full" name="keywords" placeholder="输入关键字回车搜索..." value="{{ request('keywords') }}" />
                 <div class="w-full flex justify-end">
                     <a href="javascript:void(0)" id="grammar" class="inline-block mt-2 text-xs text-gray-600">高级搜索语法</a>
                 </div>
@@ -14,7 +14,7 @@
         @if($images->isNotEmpty())
             <div class="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 2xl:grid-cols-8 gap-2">
                 @foreach($images as $image)
-                <div data-json='{{ $image->toJson() }}' class="item relative flex flex-col items-center justify-center overflow-hidden rounded-md cursor-pointer group">
+                <div data-json='{{ $image->toJson() }}' class="item relative flex flex-col items-center justify-center overflow-hidden rounded-xl cursor-pointer group bg-surface border border-white/5 hover:border-white/10 transition-all duration-200">
                     <div class="flex absolute top-1 left-1 z-[1] space-x-1">
                         @if($image->is_unhealthy)
                             <span class="bg-red-500 text-white rounded-md text-sm px-1 py-0">违规</span>
@@ -59,12 +59,12 @@
 
     <script type="text/html" id="image-tpl">
         <div class="w-full mt-4">
-            <div class="w-full mb-4 rounded-sm overflow-hidden flex items-center justify-center">
+            <div class="w-full mb-4 rounded-xl overflow-hidden flex items-center justify-center bg-black/40">
                 <a class="w-full" href="__url__" target="_blank">
                     <img src="__url__" alt="__name__" class="w-full object-center object-cover">
                 </a>
             </div>
-            <div class="relative rounded-md bg-white mb-8 overflow-hidden">
+            <div class="relative rounded-xl bg-surface border border-white/5 mb-8 overflow-hidden">
                 <dl>
                     <div class="bg-gray-50 px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                         <dt class="text-sm font-medium text-gray-500">上传用户</dt>
@@ -173,7 +173,7 @@
         <div class="flex w-full items-center justify-center py-4">
             <img class="rounded-full h-24 w-24" src="__avatar__">
         </div>
-        <div class="relative rounded-md bg-white mb-8 overflow-hidden">
+        <div class="relative rounded-xl bg-surface border border-white/5 mb-8 overflow-hidden">
             <dl>
                 <div class="bg-white px-2 py-3 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-6">
                     <dt class="text-sm font-medium text-gray-500">用户名</dt>
