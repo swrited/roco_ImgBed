@@ -1,12 +1,36 @@
-/vendor/
-/node_modules/
-/public/storage/
-/storage/framework/cache/
-/storage/framework/sessions/
-/storage/framework/views/
-/storage/logs/
-.env
-.phpunit.result.cache
+# Monorepo 根级 gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
 .DS_Store
-*.sqlite
-installed.lock
+Thumbs.db
+
+# 环境文件
+.env
+.env.local
+
+# 构建产物
+dist/
+dist-ssr/
+
+# 日志
+*.log
+
+# 数据库
+*.db
+
+# 压缩包
+*.zip
+
+# Claude
+.claude/
+
+# 旧 Laravel 项目
+backend/
+
