@@ -139,11 +139,16 @@ func resolveStrategy(userID *uint) (*model.Strategy, error) {
 	return &strategy, nil
 }
 
-// buildObjectPath 按 YYYY/MM/DD/uuid.ext 格式生成存储路径
-func buildObjectPath(ext string) (objectPath, dirPath, uniqueName string) {
+// buildObjectPath 按 user_id/YYYY/MM/DD/uuid.ext 格式生成存储路径
+// 游客上传使用 guest/YYYY/MM/DD/uuid.ext
+func buildObjectPath(userID *uint, ext string) (objectPath, dirPath, uniqueName string) {
 	now := time.Now()
 	uniqueName = strings.ReplaceAll(uuid.New().String(), "-", "") + "." + ext
-	dirPath = fmt.Sprintf("%04d/%02d/%02d", now.Year(), now.Month(), now.Day())
+	prefix := "guest"
+	if userID != nil {
+		prefix = fmt.Sprintf("user_%d", *userID)
+	}
+	dirPath = fmt.Sprintf("%s/%04d/%02d/%02d", prefix, now.Year(), now.Month(), now.Day())
 	objectPath = dirPath + "/" + uniqueName
 	return
 }
@@ -235,7 +240,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	}
 
 	// 7. 构建存储路径
-	objectPath, dirPath, uniqueName := buildObjectPath(ext)
+	objectPath, dirPath, uniqueName := buildObjectPath(userID, ext)
 
 	// 8. 保存文件到存储后端
 	if err := adapter.Save(objectPath, data); err != nil {

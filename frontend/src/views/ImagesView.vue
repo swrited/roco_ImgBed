@@ -36,9 +36,9 @@ const loading = ref(false)
 const selectedKeys = ref<string[]>([])
 
 const keyword = ref('')
-const filterAlbumId = ref('')
+const filterAlbumId = ref('__all__')
 const sortOrder = ref('newest')
-const filterPermission = ref('')
+const filterPermission = ref('__all__')
 
 const sortLabels: Record<string, string> = {
   newest: '最新上传', earliest: '最早上传', utmost: '文件最大', least: '文件最小',
@@ -48,7 +48,7 @@ const showMoveDialog = ref(false)
 const showRenameDialog = ref(false)
 const renameKey = ref('')
 const renameName = ref('')
-const moveAlbumId = ref<string>('')
+const moveAlbumId = ref<string>('__none__')
 
 async function loadImages(page = 1) {
   loading.value = true
@@ -56,8 +56,8 @@ async function loadImages(page = 1) {
   try {
     const params: Record<string, any> = { page }
     if (keyword.value.trim()) params.q = keyword.value.trim()
-    if (filterAlbumId.value) params.album_id = filterAlbumId.value
-    if (filterPermission.value !== '') params.permission = filterPermission.value
+    if (filterAlbumId.value && filterAlbumId.value !== '__all__') params.album_id = filterAlbumId.value
+    if (filterPermission.value !== '' && filterPermission.value !== '__all__') params.permission = filterPermission.value
     params.sort = sortOrder.value
 
     const res = await imagesApi.list(params)
@@ -118,13 +118,13 @@ async function handleRename() {
 }
 
 function openMove() {
-  moveAlbumId.value = ''
+  moveAlbumId.value = '__none__'
   showMoveDialog.value = true
 }
 
 async function handleMove() {
   try {
-    const albumId = moveAlbumId.value ? Number(moveAlbumId.value) : null
+    const albumId = moveAlbumId.value && moveAlbumId.value !== '__none__' ? Number(moveAlbumId.value) : null
     await imagesApi.move(selectedKeys.value, albumId)
     toast.success('移动成功')
     showMoveDialog.value = false
@@ -200,7 +200,7 @@ onMounted(() => {
           </span>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">全部相册</SelectItem>
+          <SelectItem value="__all__">全部相册</SelectItem>
           <SelectItem v-for="a in albums" :key="a.id" :value="String(a.id)">
             {{ a.name }}
           </SelectItem>
@@ -222,7 +222,7 @@ onMounted(() => {
           <span class="truncate text-sm">{{ filterPermission === '1' ? '公开' : filterPermission === '0' ? '私密' : '全部权限' }}</span>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">全部</SelectItem>
+          <SelectItem value="__all__">全部</SelectItem>
           <SelectItem value="1">公开</SelectItem>
           <SelectItem value="0">私密</SelectItem>
         </SelectContent>
@@ -336,7 +336,7 @@ onMounted(() => {
     </Dialog>
 
     <!-- Move Dialog -->
-    <Dialog v-model:open="showMoveDialog">
+    <Dialog v-model:open="showMoveDialog" :modal="false">
       <DialogContent>
         <DialogHeader>
           <DialogTitle>移动到相册</DialogTitle>
@@ -347,7 +347,7 @@ onMounted(() => {
             <SelectValue placeholder="不归属相册" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">(不归属相册)</SelectItem>
+            <SelectItem value="__none__">(不归属相册)</SelectItem>
             <SelectItem v-for="album in albums" :key="album.id" :value="String(album.id)">
               {{ album.name }}
             </SelectItem>

@@ -27,9 +27,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 		api.POST("/forgot-password", handler.NewUserHandler().ForgotPassword)
 		api.POST("/reset-password", handler.NewUserHandler().ResetPassword)
 
-		// ======== 需要 API Key 认证的公开 API ========
+		// ======== 公开 API（支持 Bearer Token、API Key 或无认证） ========
 		apiPub := api.Group("")
-		apiPub.Use(middleware.ApiKeyAuth())
+		apiPub.Use(middleware.OptionalAuthOrApiKey(cfg))
 		{
 			apiPub.GET("/gallery", handler.NewImageHandler().Gallery)
 			apiPub.GET("/strategies", handler.NewStrategyHandler().List)
