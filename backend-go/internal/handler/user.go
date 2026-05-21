@@ -106,11 +106,53 @@ func (h *UserHandler) Dashboard(c *gin.Context) {
 	var usedCapacity float64
 	config.DB.Model(&model.Image{}).Where("user_id = ?", userID).Select("COALESCE(SUM(size), 0)").Scan(&usedCapacity)
 
+	// 今日上传数
+	var todayCount int64
+	config.DB.Model(&model.Image{}).Where("user_id = ? AND DATE(created_at) = DATE('now')", userID).Count(&todayCount)
+
+	// 本月上传数
+	var monthCount int64
+	config.DB.Model(&model.Image{}).Where("user_id = ? AND strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now')", userID).Count(&monthCount)
+
+	// 近30天每日上传统计
+	type DayStat struct {
+		Date  string `json:"date"`
+		Count int64  `json:"count"`
+	}
+	dailyStats := make([]DayStat, 30)
+	thirtyDaysAgo := time.Now().AddDate(0, 0, -29)
+	rows, err := config.DB.Model(&model.Image{}).
+		Select("DATE(created_at) as date, COUNT(*) as count").
+		Where("user_id = ? AND created_at >= ?", userID, thirtyDaysAgo).
+		Group("DATE(created_at)").
+		Order("date ASC").
+		Rows()
+	if err == nil {
+		defer rows.Close()
+		type row struct {
+			Date  string
+			Count int64
+		}
+		dbStats := make(map[string]int64)
+		for rows.Next() {
+			var r row
+			config.DB.ScanRows(rows, &r)
+			dbStats[r.Date] = r.Count
+		}
+		for i := 0; i < 30; i++ {
+			dateStr := thirtyDaysAgo.AddDate(0, 0, i).Format("2006-01-02")
+			dailyStats[i] = DayStat{Date: dateStr, Count: dbStats[dateStr]}
+		}
+	}
+
 	model.Success(c, "success", gin.H{
 		"user":          user.ToProfile(),
 		"image_count":   imageCount,
 		"album_count":   albumCount,
 		"used_capacity": usedCapacity,
+		"today_count":   todayCount,
+		"month_count":   monthCount,
+		"daily_stats":   dailyStats,
 	})
 }
 

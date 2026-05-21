@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { usersApi } from '@/api/users'
+import { usersApi, type DashboardData } from '@/api/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
-import { Upload, Image, FolderOpen, HardDrive, BarChart3 } from 'lucide-vue-next'
-
-interface DashboardData {
-  user: { name: string; image_num: number; album_num: number; capacity: number }
-  image_count: number
-  album_count: number
-  used_capacity: number
-}
+import SparkLine from '@/components/SparkLine.vue'
+import { Upload, Image, FolderOpen, HardDrive, BarChart3, TrendingUp, CalendarDays } from 'lucide-vue-next'
 
 const data = ref<DashboardData>({
   user: { name: '', image_num: 0, album_num: 0, capacity: 0 },
   image_count: 0,
   album_count: 0,
   used_capacity: 0,
+  today_count: 0,
+  month_count: 0,
+  daily_stats: [],
 })
 const loading = ref(true)
 
@@ -34,19 +31,7 @@ function usagePercent(): number {
 
 onMounted(async () => {
   try {
-    const res = await usersApi.profile()
-    // profile returns user object which we combine with dashboard data
-    data.value = {
-      user: {
-        name: res.name || '',
-        image_num: res.image_num || 0,
-        album_num: res.album_num || 0,
-        capacity: res.capacity || 0,
-      },
-      image_count: res.image_num || 0,
-      album_count: res.album_num || 0,
-      used_capacity: res.used_capacity || 0,
-    }
+    data.value = await usersApi.dashboard()
   } catch { /* use defaults */ } finally {
     loading.value = false
   }
@@ -78,6 +63,18 @@ onMounted(async () => {
       </Card>
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2">
+          <CardTitle class="text-sm font-medium">今日上传</CardTitle>
+          <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400">
+            <TrendingUp class="h-4 w-4" />
+          </span>
+        </CardHeader>
+        <CardContent>
+          <p class="text-3xl font-semibold">{{ data.today_count }}</p>
+          <p class="text-xs text-muted-foreground mt-1">本月 {{ data.month_count }} 张</p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader class="flex flex-row items-center justify-between pb-2">
           <CardTitle class="text-sm font-medium">相册数量</CardTitle>
           <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
             <FolderOpen class="h-4 w-4" />
@@ -90,30 +87,36 @@ onMounted(async () => {
       <Card>
         <CardHeader class="flex flex-row items-center justify-between pb-2">
           <CardTitle class="text-sm font-medium">已用容量</CardTitle>
-          <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+          <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400">
             <HardDrive class="h-4 w-4" />
           </span>
         </CardHeader>
         <CardContent>
           <p class="text-3xl font-semibold">{{ formatSize(data.used_capacity) }}</p>
           <p class="text-xs text-muted-foreground mt-1">
-            总容量 {{ formatSize(data.user.capacity) }}
+            使用率 {{ usagePercent() }}%
           </p>
         </CardContent>
       </Card>
-      <Card>
-        <CardHeader class="flex flex-row items-center justify-between pb-2">
-          <CardTitle class="text-sm font-medium">使用率</CardTitle>
-          <span class="flex h-9 w-9 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-            <BarChart3 class="h-4 w-4" />
-          </span>
-        </CardHeader>
-        <CardContent>
-          <p class="text-3xl font-semibold">{{ usagePercent() }}%</p>
-          <Progress :model-value="usagePercent()" class="mt-2 h-2" />
-        </CardContent>
-      </Card>
     </div>
+
+    <!-- Personal Upload Trend Chart -->
+    <Card class="mb-6">
+      <CardHeader class="pb-2">
+        <CardTitle class="flex items-center gap-2 text-base">
+          <CalendarDays class="h-4 w-4 text-primary" />
+          近30天上传统计
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div v-if="data.daily_stats.length > 0">
+          <SparkLine :data="data.daily_stats" :height="160" />
+        </div>
+        <div v-else class="py-8 text-center text-sm text-muted-foreground">
+          暂无上传数据
+        </div>
+      </CardContent>
+    </Card>
 
     <!-- Storage Usage Details -->
     <Card>
