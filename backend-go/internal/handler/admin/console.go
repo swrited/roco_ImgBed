@@ -31,7 +31,7 @@ func (h *ConsoleHandler) Index(c *gin.Context) {
 		config.DB.Model(&model.Image{}).Where("created_at >= ? AND created_at < ?", start, end).Count(&count)
 
 		dailyData = append(dailyData, gin.H{
-			"date":  start.Format("01-02"),
+			"date":  start.Format("2006-01-02"),
 			"count": count,
 		})
 	}

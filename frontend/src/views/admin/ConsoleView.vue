@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted } from 'vue'
 import { adminApi } from '@/api/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import SparkLine from '@/components/SparkLine.vue'
 import { Users, Image, FolderOpen, HardDrive, TrendingUp } from 'lucide-vue-next'
 
 interface ConsoleData {
@@ -16,8 +17,6 @@ const data = ref<ConsoleData>({
   daily: [],
   strategies_count: 0,
 })
-
-const maxDaily = computed(() => Math.max(1, ...data.value.daily.map(d => d.count)))
 
 onMounted(async () => {
   try {
@@ -100,7 +99,7 @@ onMounted(async () => {
       </template>
     </div>
 
-    <!-- Daily Upload Trend -->
+    <!-- Daily Upload Trend Chart -->
     <Card class="mb-8">
       <CardHeader>
         <CardTitle class="text-base flex items-center gap-2">
@@ -108,31 +107,10 @@ onMounted(async () => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div v-if="data.daily.length > 0" class="flex items-end gap-1 h-40">
-          <div
-            v-for="(d, i) in data.daily"
-            :key="i"
-            class="flex-1 flex flex-col items-center justify-end gap-1 group"
-          >
-            <span class="text-[10px] text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-              {{ d.count }}
-            </span>
-            <div
-              class="w-full bg-primary/60 hover:bg-primary rounded-t-sm transition-all min-h-[2px]"
-              :style="{ height: (d.count / maxDaily * 100) + '%' }"
-            />
-            <span v-if="(i % 5 === 0) || i === data.daily.length - 1" class="text-[10px] text-muted-foreground mt-1">
-              {{ d.date }}
-            </span>
-          </div>
+        <div v-if="data.daily.length > 0">
+          <SparkLine :data="data.daily" :height="160" />
         </div>
         <p v-else class="text-sm text-muted-foreground text-center py-8">暂无上传统计数据</p>
-        <div class="mt-4 flex items-center justify-between text-sm text-muted-foreground">
-          <div class="flex items-center gap-4">
-            <span>近30天上传: <strong class="text-foreground">{{ data.stats.recent_uploads }}</strong></span>
-            <span>日均: <strong class="text-foreground">{{ data.daily.length > 0 ? Math.round(data.stats.recent_uploads / data.daily.length) : 0 }}</strong></span>
-          </div>
-        </div>
       </CardContent>
     </Card>
 

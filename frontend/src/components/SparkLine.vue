@@ -53,7 +53,7 @@ const maxDate = computed(() => {
       maxDate = d.date
     }
   }
-  return maxDate.slice(5) // MM-DD
+  return maxDate.split('-').length === 3 ? maxDate.slice(5) : maxDate
 })
 
 // Labels: show first date, first day of each month, last date
@@ -71,7 +71,8 @@ const labelIndices = computed(() => {
 
 function formatLabel(date: string): string {
   const parts = date.split('-')
-  return `${parts[1]}-${parts[2]}`
+  if (parts.length >= 3) return `${parts[1]}-${parts[2]}`
+  return date
 }
 </script>
 
