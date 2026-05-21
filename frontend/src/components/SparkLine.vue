@@ -13,6 +13,7 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const chartHeight = computed(() => props.height)
+const chartViewBox = computed(() => `0 0 100 ${chartHeight.value}`)
 const padding = { top: 10, right: 4, bottom: 22, left: 4 }
 const innerHeight = computed(() => chartHeight.value - padding.top - padding.bottom)
 
@@ -91,7 +92,7 @@ function formatLabel(date: string): string {
       </div>
     </div>
     <svg
-      viewBox="0 0 100 100"
+      :viewBox="chartViewBox"
       preserveAspectRatio="none"
       class="w-full overflow-visible"
       :style="{ height: chartHeight + 'px' }"
