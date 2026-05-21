@@ -40,10 +40,6 @@ const filterAlbumId = ref('__all__')
 const sortOrder = ref('newest')
 const filterPermission = ref('__all__')
 
-const sortLabels: Record<string, string> = {
-  newest: '最新上传', earliest: '最早上传', utmost: '文件最大', least: '文件最小',
-}
-
 const showMoveDialog = ref(false)
 const showRenameDialog = ref(false)
 const renameKey = ref('')
@@ -195,9 +191,7 @@ onMounted(() => {
       </div>
       <Select v-model="filterAlbumId" @update:model-value="loadImages()">
         <SelectTrigger class="w-36">
-          <span class="truncate text-sm">
-            {{ filterAlbumId ? (albums.find(a => String(a.id) === filterAlbumId)?.name || '全部相册') : '全部相册' }}
-          </span>
+          <SelectValue placeholder="全部相册" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">全部相册</SelectItem>
@@ -208,7 +202,7 @@ onMounted(() => {
       </Select>
       <Select v-model="sortOrder" @update:model-value="loadImages()">
         <SelectTrigger class="w-32">
-          <span class="truncate text-sm">{{ sortLabels[sortOrder] || '最新上传' }}</span>
+          <SelectValue placeholder="最新上传" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="newest">最新上传</SelectItem>
@@ -219,7 +213,7 @@ onMounted(() => {
       </Select>
       <Select v-model="filterPermission" @update:model-value="loadImages()">
         <SelectTrigger class="w-28">
-          <span class="truncate text-sm">{{ filterPermission === '1' ? '公开' : filterPermission === '0' ? '私密' : '全部权限' }}</span>
+          <SelectValue placeholder="全部权限" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">全部</SelectItem>
