@@ -146,15 +146,6 @@ const hoverPoint = computed(() => {
           vector-effect="non-scaling-stroke"
         />
 
-        <!-- Dots -->
-        <circle
-          v-for="(p, i) in points"
-          :key="i"
-          :cx="p.x" :cy="p.y"
-          r="1.2"
-          fill="#8b5cf6"
-        />
-
         <!-- Hover vertical line -->
         <line
           v-if="hoverPoint"
@@ -166,16 +157,6 @@ const hoverPoint = computed(() => {
           stroke-dasharray="2 2"
         />
 
-        <!-- Hover dot -->
-        <circle
-          v-if="hoverPoint"
-          :cx="hoverPoint.x" :cy="hoverPoint.y"
-          r="1.8"
-          fill="#8b5cf6"
-          stroke="#fff"
-          stroke-width="0.5"
-        />
-
         <defs>
           <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.25" />
@@ -183,6 +164,36 @@ const hoverPoint = computed(() => {
           </linearGradient>
         </defs>
       </svg>
+
+      <!-- HTML dots (not stretched by preserveAspectRatio) -->
+      <div
+        v-for="(p, i) in points"
+        :key="'d' + i"
+        class="absolute rounded-full bg-purple-500 pointer-events-none"
+        :style="{
+          width: '3px',
+          height: '3px',
+          left: p.x + '%',
+          top: p.y + 'px',
+          transform: 'translate(-50%, -50%)',
+        }"
+      />
+
+      <!-- Hover dot -->
+      <div
+        v-if="hoverPoint"
+        class="absolute rounded-full pointer-events-none"
+        :style="{
+          width: '7px',
+          height: '7px',
+          left: hoverPoint.x + '%',
+          top: hoverPoint.y + 'px',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: '#8b5cf6',
+          border: '1.5px solid #fff',
+          zIndex: 10,
+        }"
+      />
 
       <!-- Hover tooltip -->
       <div
