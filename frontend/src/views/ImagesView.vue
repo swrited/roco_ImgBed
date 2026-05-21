@@ -57,7 +57,7 @@ async function loadImages(page = 1) {
     params.sort = sortOrder.value
 
     const res = await imagesApi.list(params)
-    images.value = res.data
+    images.value = res?.data ?? []
     currentPage.value = res.current_page
     lastPage.value = res.last_page
     total.value = res.total

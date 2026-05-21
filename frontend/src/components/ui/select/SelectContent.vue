@@ -18,8 +18,11 @@ defineOptions({
 const props = withDefaults(
   defineProps<SelectContentProps & { class?: HTMLAttributes['class'] }>(),
   {
-    position: 'item-aligned',
-    align: 'center',
+    position: 'popper',
+    side: 'bottom',
+    align: 'start',
+    sideOffset: 4,
+    avoidCollisions: true,
   },
 )
 const emits = defineEmits<SelectContentEmits>()
