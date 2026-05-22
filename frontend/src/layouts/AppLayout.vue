@@ -13,7 +13,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { Menu, LayoutDashboard, Upload, Image, FolderOpen, Settings, LogOut, Images, BookOpen, UserCog, Shield, HardDrive, BarChart3, Users, Sparkles, Key } from 'lucide-vue-next'
+import { Menu, LayoutDashboard, Upload, Image, FolderOpen, Settings, LogOut, Images, BookOpen, UserCog, Shield, HardDrive, BarChart3, Users, Sparkles, Key, Terminal, Activity } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 const auth = useAuthStore()
@@ -29,21 +29,25 @@ const navItems = [
   { to: '/images', label: '图片管理', icon: Image, requiresAuth: true },
   { to: '/albums', label: '相册管理', icon: FolderOpen, requiresAuth: true },
   { to: '/api-keys', label: 'API Keys', icon: Key, requiresAuth: true },
+  { to: '/api-usage', label: 'API 统计', icon: Activity, requiresAuth: true },
   { to: '/gallery', label: '画廊', icon: Images },
   { to: '/api-doc', label: 'API 文档', icon: BookOpen },
+  { to: '/api-test', label: 'API 测试', icon: Terminal },
 ]
 
 const adminNavItems = [
-  { to: '/admin', label: '控制台', icon: BarChart3 },
+  { to: '/admin', label: '控制台', icon: BarChart3, exact: true },
   { to: '/admin/users', label: '用户管理', icon: Users },
   { to: '/admin/images', label: '图片管理', icon: Image },
   { to: '/admin/groups', label: '角色组', icon: Shield },
   { to: '/admin/strategies', label: '存储策略', icon: HardDrive },
+  { to: '/admin/api-usage', label: 'API 统计', icon: Activity },
   { to: '/admin/settings', label: '系统设置', icon: Settings },
 ]
 
-function isActive(path: string) {
-  return router.currentRoute.value.path === path || router.currentRoute.value.path.startsWith(path + '/')
+function isActive(path: string, exact = false) {
+  const currentPath = router.currentRoute.value.path
+  return exact ? currentPath === path : currentPath === path || currentPath.startsWith(path + '/')
 }
 </script>
 
@@ -53,13 +57,8 @@ function isActive(path: string) {
     <aside class="hidden lg:flex w-72 flex-col border-r border-purple-500/10 bg-[#0a0a0f]">
       <div class="flex h-16 items-center border-b border-purple-500/10 px-5">
         <router-link to="/" class="flex items-center gap-3 font-semibold">
-          <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-600 to-indigo-500 text-white shadow-lg shadow-purple-500/20">
-            <Image class="h-5 w-5" />
-          </span>
-          <span class="leading-tight">
-            <span class="block text-base text-white">洛克图床</span>
-            <span class="block text-xs font-medium text-slate-500">Image Console</span>
-          </span>
+          <img src="/roco-logo.svg" alt="洛克图床" class="h-10 w-10 rounded-xl object-contain shadow-lg shadow-purple-500/20" />
+          <img src="/roco-wordmark.svg" alt="洛克图床" class="h-11 w-32 object-contain object-left" />
         </router-link>
       </div>
       <nav class="flex-1 overflow-auto px-3 py-5 space-y-1.5">
@@ -82,7 +81,7 @@ function isActive(path: string) {
             <router-link
               :to="item.to"
               class="flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all border border-transparent"
-              :class="isActive(item.to) ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_rgba(139,92,246,0.05)]' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'"
+              :class="isActive(item.to, item.exact) ? 'bg-purple-500/10 text-purple-400 border-purple-500/20 shadow-[0_0_10px_rgba(139,92,246,0.05)]' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'"
             >
               <component :is="item.icon" class="h-4 w-4" />
               {{ item.label }}
@@ -141,10 +140,8 @@ function isActive(path: string) {
           <SheetContent side="left" class="w-64 p-0">
             <div class="flex h-14 items-center border-b border-purple-500/10 px-4">
               <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-                <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500">
-                  <Image class="h-4 w-4 text-white" />
-                </span>
-                <span>洛克图床</span>
+                <img src="/roco-logo.svg" alt="洛克图床" class="h-8 w-8 rounded-lg object-contain" />
+                <img src="/roco-wordmark.svg" alt="洛克图床" class="h-12 w-32 object-contain object-left" />
               </router-link>
             </div>
             <nav class="flex-1 overflow-auto py-4 px-2 space-y-1">
@@ -163,10 +160,8 @@ function isActive(path: string) {
           </SheetContent>
         </Sheet>
         <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-          <span class="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-purple-600 to-indigo-500">
-            <Image class="h-4 w-4 text-white" />
-          </span>
-          <span>洛克图床</span>
+          <img src="/roco-logo.svg" alt="洛克图床" class="h-8 w-8 rounded-lg object-contain" />
+          <img src="/roco-wordmark.svg" alt="洛克图床" class="h-12 w-32 object-contain object-left" />
         </router-link>
         <div class="flex-1" />
         <DropdownMenu v-if="auth.isAuthenticated">
@@ -193,7 +188,11 @@ function isActive(path: string) {
       <!-- Page content -->
       <main class="flex-1 overflow-auto bg-gradient-to-br from-transparent via-purple-900/5 to-transparent">
         <div class="page-shell">
-          <RouterView />
+          <RouterView v-slot="{ Component, route }">
+            <Transition name="page-slide" mode="out-in">
+              <component :is="Component" :key="route.fullPath" />
+            </Transition>
+          </RouterView>
         </div>
       </main>
     </div>
