@@ -18,7 +18,7 @@ interface Preset {
   path: string
   query?: string
   body?: string
-  authMode?: 'header' | 'path' | 'query' | 'none'
+  authMode?: 'header' | 'path' | 'query'
 }
 
 interface ImagePreview {
@@ -39,14 +39,13 @@ const presets: Preset[] = [
   { label: '图片列表', method: 'GET', path: '/api/v1/images', query: 'page=1&per_page=20' },
   { label: '相册列表', method: 'GET', path: '/api/v1/albums' },
   { label: '创建相册', method: 'POST', path: '/api/v1/albums', body: '{\n  "name": "测试相册",\n  "intro": "API 测试创建"\n}' },
-  { label: '无认证拦截测试', method: 'GET', path: '/api/v1/profile', authMode: 'none' },
 ]
 
 const baseUrl = ref(window.location.origin)
 const method = ref<HttpMethod>('GET')
 const path = ref('/api/ping')
 const query = ref('')
-const authMode = ref<'header' | 'path' | 'query' | 'none'>('header')
+const authMode = ref<'header' | 'path' | 'query'>('header')
 const credential = ref('')
 const body = ref('')
 const sending = ref(false)
@@ -429,13 +428,12 @@ watch([method, path], syncBodyTemplate)
                     <SelectItem value="header">Header (X-Api-Key)</SelectItem>
                     <SelectItem value="path">URL 路径 (/t/{token})</SelectItem>
                     <SelectItem value="query">URL 参数 (?api_key=...)</SelectItem>
-                    <SelectItem value="none">无认证 (游客测试)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div class="space-y-2">
                 <Label>API Key</Label>
-                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="isHealthCheck || authMode === 'none'" placeholder="lsky-..." />
+                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="isHealthCheck" placeholder="lsky-..." />
               </div>
             </div>
 
