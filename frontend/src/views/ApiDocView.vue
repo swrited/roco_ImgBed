@@ -152,7 +152,7 @@ const endpoints: Endpoint[] = [
     label: '上传图片',
     method: 'POST',
     path: '/api/v1/upload',
-    desc: '上传图片。支持标准的 Header 认证。如果你的工具不支持设置 Header，你可以直接发送到 /api/v1/upload/{API_KEY} 来实现无认证快速上传。',
+    desc: '上传图片。支持标准的 Header 认证。如果你的工具不支持设置 Header，你可以直接发送到 /api/v1/t/{API_KEY}/upload 来实现无认证快速上传。',
     auth: true,
     body: [
       { name: 'file', type: 'File', required: '是', desc: '图片文件（必须使用 multipart/form-data 格式）' },

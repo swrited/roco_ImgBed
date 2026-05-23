@@ -61,22 +61,19 @@ func Setup(cfg *config.Config) *gin.Engine {
 			uploadGroup.POST("/upload", handler.NewImageHandler().Upload)
 		}
 
-		// Token-based Upload (using URL path parameter)
-		tokenUploadGroup := api.Group("")
-		tokenUploadGroup.Use(middleware.TokenPathAuth())
-		{
-			tokenUploadGroup.POST("/upload/:token", handler.NewImageHandler().Upload)
-		}
+		// ======== 无认证 URL 路径参数路由（支持所有业务接口） ========
+		tokenAuthed := api.Group("/t/:token")
+		tokenAuthed.Use(middleware.TokenPathAuth())
+		// 单独为 upload 加上，因为 upload 正常在 OptionalAuth 组里
+		tokenAuthed.POST("/upload", handler.NewImageHandler().Upload)
+		registerAuthedRoutes(tokenAuthed, authH)
 
 		// ======== 认证路由（支持 Bearer Token 或 API Key） ========
 		authed := api.Group("")
 		authed.Use(middleware.AuthOrApiKey(cfg))
 		registerAuthedRoutes(authed, authH)
 
-		// ======== 无认证 URL 路径参数路由（支持所有业务接口） ========
-		tokenAuthed := api.Group("/t/:token")
-		tokenAuthed.Use(middleware.TokenPathAuth())
-		registerAuthedRoutes(tokenAuthed, authH)
+
 	}
 
 	return r

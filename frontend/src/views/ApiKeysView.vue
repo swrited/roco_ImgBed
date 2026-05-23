@@ -152,7 +152,7 @@ onMounted(loadKeys)
         <div class="space-y-2">
           <p class="text-sm font-medium">无认证快速上传拉取（支持 PicGo / ShareX 等）：</p>
           <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all">
-            POST /api/v1/upload/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+            POST /api/v1/t/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/upload
           </code>
         </div>
       </CardContent>
