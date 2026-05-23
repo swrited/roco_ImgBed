@@ -30,8 +30,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
-		// ======== 完全公开路由（无需任何认证） ========
 		authH := handler.NewAuthHandler(cfg)
+		// ======== 完全公开路由（无需任何认证） ========
 		api.POST("/tokens", authH.Login)
 		api.POST("/register", authH.Register)
 		api.POST("/forgot-password", handler.NewUserHandler().ForgotPassword)
@@ -71,99 +71,106 @@ func Setup(cfg *config.Config) *gin.Engine {
 		// ======== 认证路由（支持 Bearer Token 或 API Key） ========
 		authed := api.Group("")
 		authed.Use(middleware.AuthOrApiKey(cfg))
-		{
-			userH := handler.NewUserHandler()
-			imgH := handler.NewImageHandler()
-			albumH := handler.NewAlbumHandler()
-			apiKeyH := handler.NewApiKeyHandler()
-			apiUsageH := handler.NewAPIUsageHandler()
-			aiImageH := handler.NewAIImageHandler()
+		registerAuthedRoutes(authed, authH)
 
-			// Profile
-			authed.GET("/profile", userH.Profile)
-			authed.PUT("/profile", userH.UpdateProfile)
-
-			// Dashboard
-			authed.GET("/dashboard", userH.Dashboard)
-
-			// User settings
-			authed.GET("/user/settings", userH.Settings)
-			authed.PUT("/user/settings", userH.UpdateSettings)
-			authed.PUT("/user/settings/strategy", userH.SetStrategy)
-			authed.PUT("/user/settings/permission", userH.SetPermission)
-			authed.PUT("/user/settings/album", userH.SetAlbum)
-
-			// API Keys management
-			authed.GET("/api-keys", apiKeyH.List)
-			authed.POST("/api-keys", apiKeyH.Create)
-			authed.DELETE("/api-keys/:id", apiKeyH.Revoke)
-			authed.GET("/api-usage", apiUsageH.UserStats)
-
-			// Images
-			authed.GET("/images", imgH.ListImages)
-			authed.DELETE("/images", imgH.BatchDelete)
-			authed.DELETE("/images/:key", imgH.Delete)
-			authed.PUT("/images/rename", imgH.Rename)
-			authed.PUT("/images/movement", imgH.Move)
-			authed.PUT("/images/permission", imgH.Permission)
-
-			// AI image generation
-			authed.POST("/ai/images", aiImageH.Generate)
-
-			// Albums
-			authed.GET("/albums", albumH.List)
-			authed.POST("/albums", albumH.Create)
-			authed.PUT("/albums/:id", albumH.Update)
-			authed.DELETE("/albums/:id", albumH.Delete)
-
-			// Token management
-			authed.DELETE("/tokens", authH.Logout)
-
-			// Admin routes (AdminRequired 叠加在 AuthOrApiKey 之上)
-			adminGroup := authed.Group("/admin")
-			adminGroup.Use(middleware.AdminRequired())
-			{
-				consoleH := admin.NewConsoleHandler()
-				adminUserH := admin.NewUserHandler()
-				adminImageH := admin.NewImageHandler()
-				adminGroupH := admin.NewGroupHandler()
-				adminStrategyH := admin.NewStrategyHandler()
-				adminSettingH := admin.NewSettingHandler()
-				adminAPIUsageH := handler.NewAPIUsageHandler()
-
-				adminGroup.GET("/console", consoleH.Index)
-				adminGroup.GET("/api-usage", adminAPIUsageH.AdminStats)
-
-				// Users
-				adminGroup.GET("/users", adminUserH.List)
-				adminGroup.GET("/users/:id", adminUserH.Edit)
-				adminGroup.PUT("/users/:id", adminUserH.Update)
-				adminGroup.DELETE("/users/:id", adminUserH.Delete)
-
-				// Images
-				adminGroup.GET("/images", adminImageH.List)
-				adminGroup.DELETE("/images", adminImageH.Delete)
-
-				// Groups
-				adminGroup.GET("/groups", adminGroupH.List)
-				adminGroup.POST("/groups", adminGroupH.Create)
-				adminGroup.DELETE("/groups/clear-cache", adminGroupH.ClearCache)
-				adminGroup.PUT("/groups/:id", adminGroupH.Update)
-				adminGroup.DELETE("/groups/:id", adminGroupH.Delete)
-
-				// Strategies
-				adminGroup.GET("/strategies", adminStrategyH.List)
-				adminGroup.POST("/strategies", adminStrategyH.Create)
-				adminGroup.PUT("/strategies/:id", adminStrategyH.Update)
-				adminGroup.DELETE("/strategies/:id", adminStrategyH.Delete)
-
-				// Settings
-				adminGroup.GET("/settings", adminSettingH.Index)
-				adminGroup.PUT("/settings", adminSettingH.Save)
-				adminGroup.POST("/settings/mail-test", adminSettingH.MailTest)
-			}
-		}
+		// ======== 无认证 URL 路径参数路由（支持所有业务接口） ========
+		tokenAuthed := api.Group("/t/:token")
+		tokenAuthed.Use(middleware.TokenPathAuth())
+		registerAuthedRoutes(tokenAuthed, authH)
 	}
 
 	return r
+}
+
+func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
+	userH := handler.NewUserHandler()
+	imgH := handler.NewImageHandler()
+	albumH := handler.NewAlbumHandler()
+	apiKeyH := handler.NewApiKeyHandler()
+	apiUsageH := handler.NewAPIUsageHandler()
+	aiImageH := handler.NewAIImageHandler()
+
+	// Profile
+	g.GET("/profile", userH.Profile)
+	g.PUT("/profile", userH.UpdateProfile)
+
+	// Dashboard
+	g.GET("/dashboard", userH.Dashboard)
+
+	// User settings
+	g.GET("/user/settings", userH.Settings)
+	g.PUT("/user/settings", userH.UpdateSettings)
+	g.PUT("/user/settings/strategy", userH.SetStrategy)
+	g.PUT("/user/settings/permission", userH.SetPermission)
+	g.PUT("/user/settings/album", userH.SetAlbum)
+
+	// API Keys management
+	g.GET("/api-keys", apiKeyH.List)
+	g.POST("/api-keys", apiKeyH.Create)
+	g.DELETE("/api-keys/:id", apiKeyH.Revoke)
+	g.GET("/api-usage", apiUsageH.UserStats)
+
+	// Images
+	g.GET("/images", imgH.ListImages)
+	g.DELETE("/images", imgH.BatchDelete)
+	g.DELETE("/images/:key", imgH.Delete)
+	g.PUT("/images/rename", imgH.Rename)
+	g.PUT("/images/movement", imgH.Move)
+	g.PUT("/images/permission", imgH.Permission)
+
+	// AI image generation
+	g.POST("/ai/images", aiImageH.Generate)
+
+	// Albums
+	g.GET("/albums", albumH.List)
+	g.POST("/albums", albumH.Create)
+	g.PUT("/albums/:id", albumH.Update)
+	g.DELETE("/albums/:id", albumH.Delete)
+
+	// Token management
+	g.DELETE("/tokens", authH.Logout)
+
+	// Admin routes
+	adminGroup := g.Group("/admin")
+	adminGroup.Use(middleware.AdminRequired())
+	{
+		consoleH := admin.NewConsoleHandler()
+		adminUserH := admin.NewUserHandler()
+		adminImageH := admin.NewImageHandler()
+		adminGroupH := admin.NewGroupHandler()
+		adminStrategyH := admin.NewStrategyHandler()
+		adminSettingH := admin.NewSettingHandler()
+		adminAPIUsageH := handler.NewAPIUsageHandler()
+
+		adminGroup.GET("/console", consoleH.Index)
+		adminGroup.GET("/api-usage", adminAPIUsageH.AdminStats)
+
+		// Users
+		adminGroup.GET("/users", adminUserH.List)
+		adminGroup.GET("/users/:id", adminUserH.Edit)
+		adminGroup.PUT("/users/:id", adminUserH.Update)
+		adminGroup.DELETE("/users/:id", adminUserH.Delete)
+
+		// Images
+		adminGroup.GET("/images", adminImageH.List)
+		adminGroup.DELETE("/images", adminImageH.Delete)
+
+		// Groups
+		adminGroup.GET("/groups", adminGroupH.List)
+		adminGroup.POST("/groups", adminGroupH.Create)
+		adminGroup.DELETE("/groups/clear-cache", adminGroupH.ClearCache)
+		adminGroup.PUT("/groups/:id", adminGroupH.Update)
+		adminGroup.DELETE("/groups/:id", adminGroupH.Delete)
+
+		// Strategies
+		adminGroup.GET("/strategies", adminStrategyH.List)
+		adminGroup.POST("/strategies", adminStrategyH.Create)
+		adminGroup.PUT("/strategies/:id", adminStrategyH.Update)
+		adminGroup.DELETE("/strategies/:id", adminStrategyH.Delete)
+
+		// Settings
+		adminGroup.GET("/settings", adminSettingH.Index)
+		adminGroup.PUT("/settings", adminSettingH.Save)
+		adminGroup.POST("/settings/mail-test", adminSettingH.MailTest)
+	}
 }
