@@ -18,6 +18,7 @@ interface Preset {
   path: string
   query?: string
   body?: string
+  authMode?: 'header' | 'path' | 'query' | 'none'
 }
 
 interface ImagePreview {
@@ -38,12 +39,14 @@ const presets: Preset[] = [
   { label: '图片列表', method: 'GET', path: '/api/v1/images', query: 'page=1&per_page=20' },
   { label: '相册列表', method: 'GET', path: '/api/v1/albums' },
   { label: '创建相册', method: 'POST', path: '/api/v1/albums', body: '{\n  "name": "测试相册",\n  "intro": "API 测试创建"\n}' },
+  { label: '无认证拦截测试', method: 'GET', path: '/api/v1/profile', authMode: 'none' },
 ]
 
 const baseUrl = ref(window.location.origin)
 const method = ref<HttpMethod>('GET')
 const path = ref('/api/ping')
 const query = ref('')
+const authMode = ref<'header' | 'path' | 'query' | 'none'>('header')
 const credential = ref('')
 const body = ref('')
 const sending = ref(false)
@@ -66,14 +69,26 @@ let cooldownTimer: number | undefined
 
 const fullUrl = computed(() => {
   const trimmedBase = baseUrl.value.replace(/\/+$/, '')
-  const normalizedPath = path.value.startsWith('/') ? path.value : `/${path.value}`
-  const q = query.value.trim().replace(/^\?/, '')
-  return `${trimmedBase}${normalizedPath}${q ? `?${q}` : ''}`
+  let normalizedPath = path.value.startsWith('/') ? path.value : `/${path.value}`
+  
+  if (!isHealthCheck.value && authMode.value === 'path' && credential.value.trim()) {
+    if (normalizedPath.startsWith('/api/v1/')) {
+      normalizedPath = `/api/v1/t/${credential.value.trim()}/` + normalizedPath.slice(8)
+    }
+  }
+
+  const params = new URLSearchParams(query.value)
+  if (!isHealthCheck.value && authMode.value === 'query' && credential.value.trim()) {
+    params.set('api_key', credential.value.trim())
+  }
+  
+  const qString = params.toString()
+  return `${trimmedBase}${normalizedPath}${qString ? `?${qString}` : ''}`
 })
 
 const requestCommand = computed(() => {
   const lines = [`curl -X ${method.value} ${shellQuote(fullUrl.value)}`]
-  if (!isHealthCheck.value) {
+  if (!isHealthCheck.value && authMode.value === 'header') {
     lines.push(`  -H ${shellQuote(`X-Api-Key: ${credential.value.trim() || 'YOUR_API_KEY'}`)}`)
   }
   if (method.value !== 'GET' && body.value.trim()) {
@@ -102,6 +117,11 @@ function applyPreset(preset: Preset) {
   method.value = preset.method
   path.value = preset.path
   query.value = preset.query || ''
+  if (preset.authMode) {
+    authMode.value = preset.authMode
+  } else {
+    authMode.value = 'header'
+  }
   const template = preset.body || templateForRequest(preset.method, preset.path)
   body.value = template
   lastAutoBody.value = template
@@ -215,7 +235,7 @@ async function sendRequest() {
   imagePreview.value = null
 
   const headers: Record<string, string> = {}
-  if (!isHealthCheck.value && credential.value.trim()) {
+  if (!isHealthCheck.value && authMode.value === 'header' && credential.value.trim()) {
     headers['X-Api-Key'] = credential.value.trim()
   }
 
@@ -397,14 +417,25 @@ watch([method, path], syncBodyTemplate)
 
             <div class="grid gap-4 lg:grid-cols-[180px_1fr]">
               <div class="space-y-2">
-                <Label>认证</Label>
-                <div class="flex h-10 items-center rounded-md border border-white/10 bg-[#09090d] px-3 text-sm text-slate-300">
-                  {{ isHealthCheck ? '健康检查无需认证' : 'X-Api-Key' }}
+                <Label>认证方式</Label>
+                <div v-if="isHealthCheck" class="flex h-10 items-center rounded-md border border-white/10 bg-[#09090d] px-3 text-sm text-slate-300">
+                  健康检查无需认证
                 </div>
+                <Select v-else v-model="authMode">
+                  <SelectTrigger class="h-10 w-full border-white/10 bg-[#09090d] text-slate-100">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent class="border-white/10 bg-[#09090d] text-slate-100">
+                    <SelectItem value="header">Header (X-Api-Key)</SelectItem>
+                    <SelectItem value="path">URL 路径 (/t/{token})</SelectItem>
+                    <SelectItem value="query">URL 参数 (?api_key=...)</SelectItem>
+                    <SelectItem value="none">无认证 (游客测试)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div class="space-y-2">
                 <Label>API Key</Label>
-                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="isHealthCheck" placeholder="lsky-..." />
+                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="isHealthCheck || authMode === 'none'" placeholder="lsky-..." />
               </div>
             </div>
 
