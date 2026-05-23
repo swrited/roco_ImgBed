@@ -64,8 +64,10 @@ func Setup(cfg *config.Config) *gin.Engine {
 		// ======== 无认证 URL 路径参数路由（支持所有业务接口） ========
 		tokenAuthed := api.Group("/t/:token")
 		tokenAuthed.Use(middleware.TokenPathAuth())
-		// 单独为 upload 加上，因为 upload 正常在 OptionalAuth 组里
+		// 单独为 upload 和 random/adaptive 加上，因为它们不在常规 authed 组里
 		tokenAuthed.POST("/upload", handler.NewImageHandler().Upload)
+		tokenAuthed.GET("/images/random", handler.NewImageHandler().Random)
+		tokenAuthed.GET("/images/adaptive", handler.NewImageHandler().Adaptive)
 		registerAuthedRoutes(tokenAuthed, authH)
 
 		// ======== 认证路由（支持 Bearer Token 或 API Key） ========
