@@ -92,6 +92,7 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	// Profile
 	g.GET("/profile", userH.Profile)
 	g.PUT("/profile", userH.UpdateProfile)
+	g.PUT("/profile/token", userH.RefreshToken)
 
 	// Dashboard
 	g.GET("/dashboard", userH.Dashboard)

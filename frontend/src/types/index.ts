@@ -3,6 +3,7 @@ export interface User {
   name: string
   email: string
   avatar?: string
+  token?: string
   capacity: number
   url?: string
   image_num: number

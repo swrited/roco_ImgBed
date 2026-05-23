@@ -43,6 +43,18 @@ func autoMigrate(db *gorm.DB) {
 	log.Println("数据库迁移完成")
 	seedIfEmpty(db)
 	ensureDefaultConfigs(db)
+	ensureUserTokens(db)
+}
+
+func ensureUserTokens(db *gorm.DB) {
+	var users []model.User
+	if err := db.Where("token = '' OR token IS NULL").Find(&users).Error; err == nil && len(users) > 0 {
+		for _, u := range users {
+			u.Token = model.RandomString(6)
+			db.Save(&u)
+		}
+		log.Printf("为 %d 个老用户补全了短 Token", len(users))
+	}
 }
 
 func seedIfEmpty(db *gorm.DB) {

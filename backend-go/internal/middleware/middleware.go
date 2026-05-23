@@ -422,9 +422,35 @@ func TokenPathAuth() gin.HandlerFunc {
 			return
 		}
 
+		if len(token) <= 8 {
+			if c.Request.Method != http.MethodGet {
+				model.Fail(c, http.StatusForbidden, "短 Token 仅支持读取操作")
+				c.Abort()
+				return
+			}
+			
+			var user model.User
+			if err := config.DB.Where("token = ?", token).First(&user).Error; err != nil {
+				model.Fail(c, http.StatusUnauthorized, "短 Token 无效")
+				c.Abort()
+				return
+			}
+			if user.Status == 0 {
+				model.Fail(c, http.StatusForbidden, "账号已被冻结")
+				c.Abort()
+				return
+			}
+
+			c.Set("user_id", user.ID)
+			c.Set("is_adminer", user.IsAdminer)
+			c.Set("auth_type", "short_token")
+			c.Next()
+			return
+		}
+
 		var key model.ApiKey
 		if err := config.DB.Where("key = ? AND revoked_at IS NULL", token).First(&key).Error; err != nil {
-			model.Fail(c, http.StatusUnauthorized, "Token 无效")
+			model.Fail(c, http.StatusUnauthorized, "API Key 无效")
 			c.Abort()
 			return
 		}

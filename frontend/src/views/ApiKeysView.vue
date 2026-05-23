@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'vue-sonner'
-import { Key, Copy, Plus, Trash2, Clock } from 'lucide-vue-next'
+import { Key, Copy, Plus, Trash2, Clock, RefreshCw } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import { usersApi } from '@/api/users'
 
 const keys = ref<ApiKeyItem[]>([])
 const newKeyName = ref('')
 const creating = ref(false)
+const authStore = useAuthStore()
 
 async function loadKeys() {
   try {
@@ -59,12 +62,34 @@ function formatDate(date: string | null): string {
   return new Date(date).toLocaleString()
 }
 
-onMounted(loadKeys)
+const refreshingToken = ref(false)
+
+async function refreshShortToken() {
+  if (!confirm('确定要重置短令牌吗？之前的令牌将立即失效。')) return
+  refreshingToken.value = true
+  try {
+    const res = await usersApi.refreshToken()
+    if (authStore.user) {
+      authStore.user.token = res.token
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+    toast.success('短令牌已重置')
+  } catch (e: any) {
+    toast.error(e.message || '重置失败')
+  } finally {
+    refreshingToken.value = false
+  }
+}
+
+onMounted(() => {
+  loadKeys()
+  authStore.fetchProfile()
+})
 </script>
 
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
-    <h1 class="text-2xl font-bold">API Key 管理</h1>
+    <h1 class="text-2xl font-bold">API Key 与短令牌管理</h1>
 
     <!-- Create new key -->
     <Card>
@@ -153,12 +178,30 @@ onMounted(loadKeys)
             GET /api/v1/images?api_key=lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
           </code>
         </div>
-        <div class="space-y-2">
-          <p class="text-sm font-medium">无认证快速拉取/上传（支持 PicGo / ShareX 等）：</p>
-          <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all">
-            POST /api/v1/t/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/action
-          </code>
-        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Short Token Card -->
+    <Card class="border-emerald-500/20 bg-emerald-500/5">
+      <CardHeader>
+        <CardTitle class="flex items-center justify-between text-lg">
+          <div class="flex items-center gap-2 text-emerald-400">
+            <Key class="h-5 w-5" /> 无认证短令牌 (Short Token)
+          </div>
+          <Button variant="outline" size="sm" class="h-7 text-xs border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400" @click="refreshShortToken" :disabled="refreshingToken">
+            <RefreshCw class="h-3 w-3 mr-1" :class="{ 'animate-spin': refreshingToken }" />
+            重置令牌
+          </Button>
+        </CardTitle>
+        <CardDescription class="text-emerald-500/70">用于无认证安全拉取图片的专属公开凭证</CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <p class="text-sm text-muted-foreground">
+          您的专属极简凭证，<strong>仅限 GET 读取</strong>，无法用于上传等高危操作。适合在博客、前端页面中直接拼接，让 URL 更清爽。
+        </p>
+        <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all border border-emerald-500/20 text-emerald-400">
+          GET /api/v1/t/{{ authStore.user?.token || 'xxxxxx' }}/images
+        </code>
       </CardContent>
     </Card>
   </div>

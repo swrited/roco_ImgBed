@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // -------- Response DTOs --------
@@ -108,6 +110,7 @@ type User struct {
 	Email           string     `gorm:"column:email;type:varchar(255);uniqueIndex" json:"email"`
 	Password        string     `gorm:"column:password;type:varchar(255)" json:"-"`
 	RememberToken   string     `gorm:"column:remember_token;type:varchar(100)" json:"-"`
+	Token           string     `gorm:"column:token;type:varchar(16);uniqueIndex" json:"token"`
 	IsAdminer       bool       `gorm:"column:is_adminer;default:false" json:"is_adminer"`
 	Capacity        float64    `gorm:"column:capacity;type:decimal(20,2);default:0" json:"capacity"`
 	URL             string     `gorm:"column:url;type:varchar(255);default:''" json:"url"`
@@ -122,6 +125,13 @@ type User struct {
 	Images          []Image    `gorm:"foreignKey:UserID" json:"-"`
 }
 
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	if u.Token == "" {
+		u.Token = RandomString(6)
+	}
+	return
+}
+
 func (User) TableName() string { return "users" }
 
 type UserProfile struct {
@@ -134,6 +144,7 @@ type UserProfile struct {
 	AlbumNum  uint64  `json:"album_num"`
 	URL       string  `json:"url"`
 	Avatar    string  `json:"avatar"`
+	Token     string  `json:"token"`
 }
 
 func (u *User) ToProfile() UserProfile {
@@ -147,6 +158,7 @@ func (u *User) ToProfile() UserProfile {
 		AlbumNum:  u.AlbumNum,
 		URL:       u.URL,
 		Avatar:    fmt.Sprintf("https://cravatar.cn/avatar/%x?s=96&d=mp&r=g", md5Hash(u.Email)),
+		Token:     u.Token,
 	}
 }
 
