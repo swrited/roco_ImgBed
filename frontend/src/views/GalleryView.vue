@@ -3,30 +3,29 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import apiClient from '@/api/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent } from '@/components/ui/card'
 import {
-  Dialog, DialogContent, DialogClose,
+  Dialog, DialogContent,
 } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
-import { Search, ChevronLeft, ChevronRight, X } from 'lucide-vue-next'
+import { Search, ChevronLeft, ChevronRight, X, ExternalLink, Images } from 'lucide-vue-next'
 import type { Image, PaginatedResponse } from '@/types'
 
-const images = ref<Image[]>([])
-const loading = ref(false)
-const currentPage = ref(1)
-const lastPage = ref(1)
-const total = ref(0)
-const perPage = 20
-const keyword = ref('')
+const images       = ref<Image[]>([])
+const loading      = ref(false)
+const currentPage  = ref(1)
+const lastPage     = ref(1)
+const total        = ref(0)
+const perPage      = 20
+const keyword      = ref('')
 
 const previewImage = ref<Image | null>(null)
 const previewIndex = ref(0)
-const showPreview = ref(false)
+const showPreview  = ref(false)
 
 function openPreview(img: Image, idx: number) {
   previewImage.value = img
   previewIndex.value = idx
-  showPreview.value = true
+  showPreview.value  = true
 }
 
 function prevImage() {
@@ -45,14 +44,15 @@ function nextImage() {
 
 function handleKeydown(e: KeyboardEvent) {
   if (!showPreview.value) return
-  if (e.key === 'ArrowLeft') prevImage()
+  if (e.key === 'ArrowLeft')  prevImage()
   else if (e.key === 'ArrowRight') nextImage()
+  else if (e.key === 'Escape') showPreview.value = false
 }
 
 function formatSize(kb: number): string {
   if (kb <= 0) return '0 KB'
   if (kb >= 1048576) return (kb / 1048576).toFixed(2) + ' GB'
-  if (kb >= 1024) return (kb / 1024).toFixed(2) + ' MB'
+  if (kb >= 1024)    return (kb / 1024).toFixed(2) + ' MB'
   return Math.round(kb) + ' KB'
 }
 
@@ -62,10 +62,10 @@ async function loadImages(page = 1) {
     const params: Record<string, any> = { page, per_page: perPage }
     if (keyword.value.trim()) params.keyword = keyword.value.trim()
     const res = await apiClient.get<PaginatedResponse<Image>>('/gallery', { params })
-    images.value = res.data || []
+    images.value      = res.data || []
     currentPage.value = res.current_page || 1
-    lastPage.value = res.last_page || 1
-    total.value = res.total || 0
+    lastPage.value    = res.last_page || 1
+    total.value       = res.total || 0
   } catch {
     toast.error('加载画廊失败')
     images.value = []
@@ -79,14 +79,12 @@ function goPage(page: number) {
   loadImages(page)
 }
 
-function search() {
-  loadImages(1)
-}
+function search() { loadImages(1) }
 
 const pageNumbers = (): number[] => {
   const pages: number[] = []
   const start = Math.max(1, currentPage.value - 2)
-  const end = Math.min(lastPage.value, currentPage.value + 2)
+  const end   = Math.min(lastPage.value, currentPage.value + 2)
   for (let i = start; i <= end; i++) pages.push(i)
   return pages
 }
@@ -103,8 +101,16 @@ onUnmounted(() => {
 
 <template>
   <div>
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="text-2xl font-bold">画廊</h1>
+    <!-- ── Header ─────────────────────────────────────────────────────── -->
+    <div class="animate-fade-in-up mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-widest text-violet-400">Gallery</p>
+        <h1 class="mt-1.5 text-3xl font-semibold tracking-tight">画廊</h1>
+        <p class="mt-2 text-sm text-muted-foreground">
+          共 <span class="font-medium text-slate-200 tabular-nums">{{ total }}</span> 张公开图片
+          <span v-if="lastPage > 1"> · 第 {{ currentPage }}/{{ lastPage }} 页</span>
+        </p>
+      </div>
       <div class="flex items-center gap-2">
         <div class="relative">
           <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -119,50 +125,65 @@ onUnmounted(() => {
       </div>
     </div>
 
-    <p class="text-sm text-muted-foreground mb-4">
-      共 {{ total }} 张公开图片
-      <span v-if="lastPage > 1"> · 第 {{ currentPage }}/{{ lastPage }} 页</span>
-    </p>
-
-    <!-- Loading -->
-    <div v-if="loading" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      <div v-for="i in 10" :key="i" class="aspect-square bg-muted animate-pulse rounded-lg" />
+    <!-- ── Loading skeleton ─────────────────────────────────────────────── -->
+    <div v-if="loading" class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      <div
+        v-for="i in 15"
+        :key="i"
+        class="skeleton aspect-square rounded-xl"
+      />
     </div>
 
-    <!-- Image Grid -->
-    <div v-else-if="images.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      <Card
+    <!-- ── Image grid ────────────────────────────────────────────────────── -->
+    <div
+      v-else-if="images.length > 0"
+      class="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+    >
+      <div
         v-for="(img, idx) in images"
         :key="img.key"
-        class="overflow-hidden cursor-pointer group"
+        class="group relative cursor-pointer overflow-hidden rounded-xl bg-[oklch(9%_0.008_270)] ring-1 ring-white/5 transition-all duration-300 hover:-translate-y-0.5 hover:ring-violet-500/25 hover:shadow-xl hover:shadow-black/40"
         @click="openPreview(img, idx)"
       >
-        <div class="aspect-square overflow-hidden bg-muted">
+        <!-- Image -->
+        <div class="aspect-square overflow-hidden">
           <img
             :src="img.url"
             :alt="img.name"
-            class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+            class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
           />
         </div>
-        <CardContent class="p-3">
-          <p class="text-sm truncate font-medium">{{ img.name || img.origin_name }}</p>
-          <p class="text-xs text-muted-foreground flex items-center justify-between mt-0.5">
-            <span>{{ img.width }}x{{ img.height }}</span>
-            <span>{{ formatSize(img.size) }}</span>
-          </p>
-        </CardContent>
-      </Card>
+
+        <!-- Hover overlay with metadata -->
+        <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+          <div class="p-3">
+            <p class="truncate text-xs font-medium text-white">{{ img.name || img.origin_name }}</p>
+            <p class="mt-0.5 flex items-center justify-between text-xs text-white/60">
+              <span>{{ img.width }}×{{ img.height }}</span>
+              <span>{{ formatSize(img.size) }}</span>
+            </p>
+          </div>
+        </div>
+
+        <!-- Top-right zoom indicator -->
+        <div class="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-black/50 opacity-0 backdrop-blur-sm transition-opacity duration-300 group-hover:opacity-100">
+          <ExternalLink class="h-3.5 w-3.5 text-white" />
+        </div>
+      </div>
     </div>
 
-    <!-- Empty -->
-    <div v-else class="text-center py-16 text-muted-foreground">
-      <p class="text-lg mb-1">暂无公开图片</p>
-      <p class="text-sm">目前还没有用户分享过图片</p>
+    <!-- ── Empty state ────────────────────────────────────────────────────── -->
+    <div v-else class="flex flex-col items-center justify-center py-24 text-muted-foreground">
+      <div class="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-white/5">
+        <Images class="h-8 w-8 text-muted-foreground/50" />
+      </div>
+      <p class="text-lg font-medium">暂无公开图片</p>
+      <p class="mt-1 text-sm">目前还没有用户分享过图片</p>
     </div>
 
-    <!-- Pagination -->
-    <div v-if="lastPage > 1" class="flex items-center justify-center gap-1 mt-6">
+    <!-- ── Pagination ────────────────────────────────────────────────────── -->
+    <div v-if="lastPage > 1" class="mt-8 flex items-center justify-center gap-1">
       <Button variant="outline" size="sm" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">
         <ChevronLeft class="h-4 w-4" />
       </Button>
@@ -171,6 +192,7 @@ onUnmounted(() => {
         :key="p"
         :variant="p === currentPage ? 'default' : 'outline'"
         size="sm"
+        class="w-9"
         @click="goPage(p)"
       >
         {{ p }}
@@ -180,56 +202,81 @@ onUnmounted(() => {
       </Button>
     </div>
 
-    <!-- Lightbox -->
+    <!-- ── Lightbox ─────────────────────────────────────────────────────── -->
     <Dialog :open="showPreview" @update:open="showPreview = $event">
-      <DialogContent class="max-w-5xl p-0 overflow-hidden bg-black/95 border-0">
-        <DialogClose class="absolute top-3 right-3 z-10 rounded-full bg-black/50 p-1.5 text-white hover:bg-black/70">
-          <X class="h-5 w-5" />
-        </DialogClose>
-
-        <!-- Prev button -->
+      <!--
+        :show-close-button="false" 禁用 DialogContent 自带的 X 按钮，
+        避免与我们自定义的关闭按钮重复出现。
+      -->
+      <DialogContent
+        :show-close-button="false"
+        class="sm:max-w-5xl gap-0 overflow-hidden border-white/8 bg-[oklch(5%_0.005_270)]/98 p-0 backdrop-blur-2xl"
+      >
+        <!-- Custom close button (top-right, above the image) -->
         <button
-          class="absolute left-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition disabled:opacity-20 disabled:cursor-not-allowed"
+          class="absolute right-3 top-3 z-20 flex h-8 w-8 items-center justify-center rounded-full bg-white/8 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+          @click="showPreview = false"
+        >
+          <X class="h-4 w-4" />
+        </button>
+
+        <!-- Prev -->
+        <button
+          class="absolute left-3 top-1/2 z-20 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-white/70 backdrop-blur-sm transition-all hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-20"
           :disabled="previewIndex <= 0"
           @click.stop="prevImage"
         >
-          <ChevronLeft class="h-6 w-6" />
+          <ChevronLeft class="h-5 w-5" />
         </button>
 
-        <!-- Next button -->
+        <!-- Next -->
         <button
-          class="absolute right-3 top-1/2 -translate-y-1/2 z-10 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition disabled:opacity-20 disabled:cursor-not-allowed"
+          class="absolute right-3 top-1/2 z-20 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-white/8 text-white/70 backdrop-blur-sm transition-all hover:bg-white/15 hover:text-white disabled:pointer-events-none disabled:opacity-20"
           :disabled="previewIndex >= images.length - 1"
           @click.stop="nextImage"
         >
-          <ChevronRight class="h-6 w-6" />
+          <ChevronRight class="h-5 w-5" />
         </button>
 
-        <div v-if="previewImage" class="flex flex-col max-h-[85vh]">
-          <div class="flex-1 flex items-center justify-center p-4 min-h-0">
+        <div v-if="previewImage" class="flex max-h-[88vh] flex-col">
+          <!-- Image -->
+          <div class="flex flex-1 items-center justify-center p-6 min-h-0">
             <img
               :src="previewImage.url"
               :alt="previewImage.name"
-              class="max-w-full max-h-[70vh] object-contain rounded"
+              class="max-h-[70vh] max-w-full rounded-lg object-contain shadow-2xl shadow-black/60"
             />
           </div>
-          <div class="bg-black/80 text-white px-6 py-4 space-y-1 border-t border-white/10">
-            <div class="flex items-center justify-between">
-              <p class="font-medium">{{ previewImage.name || previewImage.origin_name }}</p>
-              <span class="text-xs text-white/40">{{ previewIndex + 1 }} / {{ images.length }}</span>
+
+          <!-- Meta footer — px-14 给左右导航箭头留出空间，避免遮挡内容 -->
+          <div class="border-t border-white/8 bg-white/[0.03] px-14 py-4">
+            <div class="flex items-center justify-between gap-4">
+              <div class="min-w-0">
+                <p class="truncate font-medium text-white">
+                  {{ previewImage.name || previewImage.origin_name }}
+                </p>
+                <p class="mt-0.5 text-sm text-white/50">
+                  {{ previewImage.width }} × {{ previewImage.height }} ·
+                  {{ formatSize(previewImage.size) }} ·
+                  {{ previewImage.extension?.toUpperCase() }}
+                </p>
+              </div>
+              <div class="flex shrink-0 items-center gap-3">
+                <span class="text-xs text-white/30 tabular-nums">
+                  {{ previewIndex + 1 }} / {{ images.length }}
+                </span>
+                <a
+                  :href="previewImage.url"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-white/70 transition-all hover:border-white/20 hover:bg-white/10 hover:text-white"
+                  @click.stop
+                >
+                  <ExternalLink class="h-3.5 w-3.5" />
+                  查看原图
+                </a>
+              </div>
             </div>
-            <p class="text-sm text-white/60">
-              {{ previewImage.width }} × {{ previewImage.height }} ·
-              {{ formatSize(previewImage.size) }} ·
-              {{ previewImage.extension?.toUpperCase() }}
-            </p>
-            <a
-              :href="previewImage.url"
-              target="_blank"
-              class="text-sm text-blue-400 hover:underline inline-block mt-1"
-            >
-              查看原图
-            </a>
           </div>
         </div>
       </DialogContent>

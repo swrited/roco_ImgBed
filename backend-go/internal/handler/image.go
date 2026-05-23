@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/gif"
@@ -25,6 +26,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type ImageHandler struct{}
@@ -119,7 +121,12 @@ func resolveStrategy(userID *uint) (*model.Strategy, error) {
 			}
 		}
 
-		// 2. 使用用户组第一个可用策略
+		// 2. 使用管理员设置的系统默认策略
+		if strategy, ok := resolveSystemDefaultStrategy(); ok {
+			return strategy, nil
+		}
+
+		// 3. 使用用户组第一个可用策略
 		if user.GroupID != nil {
 			var gs model.GroupStrategy
 			if err := config.DB.Where("group_id = ?", *user.GroupID).First(&gs).Error; err == nil {
@@ -131,12 +138,32 @@ func resolveStrategy(userID *uint) (*model.Strategy, error) {
 		}
 	}
 
-	// 3. 默认本地策略
+	if strategy, ok := resolveSystemDefaultStrategy(); ok {
+		return strategy, nil
+	}
+
+	// 4. 默认本地策略
 	var strategy model.Strategy
 	if err := config.DB.Where("`key` = ?", model.StrategyLocal).First(&strategy).Error; err != nil {
 		return nil, fmt.Errorf("存储策略未配置")
 	}
 	return &strategy, nil
+}
+
+func resolveSystemDefaultStrategy() (*model.Strategy, bool) {
+	var cfg model.SystemConfig
+	if err := config.DB.Where("name = ?", "default_strategy_id").First(&cfg).Error; err != nil {
+		return nil, false
+	}
+	strategyID, err := strconv.ParseUint(strings.TrimSpace(cfg.Value), 10, 64)
+	if err != nil || strategyID == 0 {
+		return nil, false
+	}
+	var strategy model.Strategy
+	if err := config.DB.First(&strategy, uint(strategyID)).Error; err != nil {
+		return nil, false
+	}
+	return &strategy, true
 }
 
 // buildObjectPath 按 user_id/YYYY/MM/DD/uuid.ext 格式生成存储路径
@@ -184,6 +211,39 @@ func buildUploadResponse(img model.Image, url string) gin.H {
 	}
 }
 
+func buildImageLinks(url string) model.ImageLinks {
+	return model.ImageLinks{
+		URL:              url,
+		HTML:             fmt.Sprintf(`<img src="%s" />`, url),
+		BBCode:           fmt.Sprintf(`[img]%s[/img]`, url),
+		Markdown:         fmt.Sprintf(`![](%s)`, url),
+		MarkdownWithLink: fmt.Sprintf(`[![](%s)](%s)`, url, url),
+		ThumbnailURL:     url,
+	}
+}
+
+func buildImageResponse(img model.Image) gin.H {
+	url := ""
+	if img.StrategyID != nil {
+		var strategy model.Strategy
+		if err := config.DB.First(&strategy, *img.StrategyID).Error; err == nil {
+			url = buildImageURL(storage.GetStrategyURL(&strategy), img.Pathname())
+		}
+	}
+	return gin.H{
+		"key":         img.Key,
+		"name":        img.Name,
+		"origin_name": img.OriginName,
+		"pathname":    img.Pathname(),
+		"size":        img.Size,
+		"width":       img.Width,
+		"height":      img.Height,
+		"md5":         img.MD5,
+		"sha1":        img.SHA1,
+		"links":       buildImageLinks(url),
+	}
+}
+
 func (h *ImageHandler) Upload(c *gin.Context) {
 	// 1. 获取上传文件
 	file, err := c.FormFile("file")
@@ -200,6 +260,11 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	}
 
 	sizeKB := float64(file.Size) / 1024.0
+	maxUploadSize := systemConfigInt("upload_max_size", 10240)
+	if maxUploadSize > 0 && sizeKB > float64(maxUploadSize) {
+		model.Fail(c, http.StatusUnprocessableEntity, "图片大小超过限制，最大允许 "+formatKBLimit(maxUploadSize))
+		return
+	}
 
 	// 3. 读取文件内容
 	src, err := file.Open()
@@ -259,8 +324,32 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	}
 
 	// 11. 写入数据库
+
+	// 确定默认权限：读取用户配置中的 default_permission，否则默认私密
+	var defaultPermission uint = 0
+	var defaultAlbumID *uint
+	if userID != nil {
+		var user model.User
+		if err := config.DB.First(&user, *userID).Error; err == nil {
+			if permVal, ok := user.Configs["default_permission"]; ok {
+				switch v := permVal.(type) {
+				case float64:
+					defaultPermission = uint(v)
+				case int:
+					defaultPermission = uint(v)
+				case int64:
+					defaultPermission = uint(v)
+				case uint:
+					defaultPermission = v
+				}
+			}
+			defaultAlbumID = resolveDefaultAlbumID(*userID, user.Configs)
+		}
+	}
+
 	image := model.Image{
 		UserID:     userID,
+		AlbumID:    defaultAlbumID,
 		StrategyID: &strategy.ID,
 		Key:        generateKey(6),
 		Path:       dirPath,
@@ -273,11 +362,11 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 		SHA1:       sha1Sum,
 		Width:      imgWidth,
 		Height:     imgHeight,
-		Permission: 1,
+		Permission: defaultPermission,
 		UploadedIP: c.ClientIP(),
 	}
 
-	if err := config.DB.Create(&image).Error; err != nil {
+	if err := config.DB.Select("*").Create(&image).Error; err != nil {
 		adapter.Delete(objectPath) // 回滚存储
 		model.Fail(c, http.StatusInternalServerError, "数据库保存失败")
 		return
@@ -287,10 +376,46 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	if userID != nil {
 		config.DB.Model(&model.User{}).Where("id = ?", *userID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
 	}
+	if defaultAlbumID != nil {
+		config.DB.Model(&model.Album{}).Where("id = ?", *defaultAlbumID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
+	}
 
 	// 12. 构建响应
 	imageURL := buildImageURL(strategyURL, objectPath)
 	model.Success(c, "上传成功", buildUploadResponse(image, imageURL))
+}
+
+func resolveDefaultAlbumID(userID uint, configs model.JSONMap) *uint {
+	if configs == nil {
+		return nil
+	}
+	raw, ok := configs["default_album_id"]
+	if !ok {
+		return nil
+	}
+	var albumID uint
+	switch v := raw.(type) {
+	case float64:
+		albumID = uint(v)
+	case int:
+		albumID = uint(v)
+	case int64:
+		albumID = uint(v)
+	case uint:
+		albumID = v
+	case string:
+		if parsed, err := strconv.ParseUint(strings.TrimSpace(v), 10, 64); err == nil {
+			albumID = uint(parsed)
+		}
+	}
+	if albumID == 0 {
+		return nil
+	}
+	var album model.Album
+	if err := config.DB.Where("id = ? AND user_id = ?", albumID, userID).First(&album).Error; err != nil {
+		return nil
+	}
+	return &albumID
 }
 
 func (h *ImageHandler) ListImages(c *gin.Context) {
@@ -311,7 +436,11 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 	query := config.DB.Model(&model.Image{}).Where("user_id = ?", userID)
 
 	if albumID := c.Query("album_id"); albumID != "" {
-		query = query.Where("album_id = ?", albumID)
+		if albumID == "0" {
+			query = query.Where("album_id IS NULL")
+		} else {
+			query = query.Where("album_id = ?", albumID)
+		}
 	}
 	if permission := c.Query("permission"); permission != "" {
 		query = query.Where("permission = ?", permission)
@@ -344,6 +473,16 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 		"total":        total,
 		"last_page":    (total + int64(perPage) - 1) / int64(perPage),
 	})
+}
+
+func formatKBLimit(kb int) string {
+	if kb >= 1048576 {
+		return fmt.Sprintf("%.2f GB", float64(kb)/1048576)
+	}
+	if kb >= 1024 {
+		return fmt.Sprintf("%.2f MB", float64(kb)/1024)
+	}
+	return fmt.Sprintf("%d KB", kb)
 }
 
 func (h *ImageHandler) Delete(c *gin.Context) {
@@ -503,6 +642,165 @@ func (h *ImageHandler) Gallery(c *gin.Context) {
 		"total":        total,
 		"last_page":    (total + int64(perPage) - 1) / int64(perPage),
 	})
+}
+
+func (h *ImageHandler) Random(c *gin.Context) {
+	query := randomBaseQuery(c)
+	query = applyRandomFilters(query, c)
+
+	img, err := pickRandomImage(query)
+	if err != nil {
+		model.Fail(c, http.StatusNotFound, "没有匹配的图片")
+		return
+	}
+
+	model.Success(c, "success", buildImageResponse(img))
+}
+
+func (h *ImageHandler) Adaptive(c *gin.Context) {
+	orientation, ratio := adaptiveTarget(c.GetHeader("User-Agent"))
+
+	img, err := pickRandomImage(applyRatioFilter(applyOrientationFilter(randomBaseQuery(c), orientation), ratio))
+	if err != nil {
+		img, err = pickRandomImage(applyOrientationFilter(randomBaseQuery(c), orientation))
+	}
+	if err != nil {
+		img, err = pickRandomImage(randomBaseQuery(c))
+	}
+	if err != nil {
+		model.Fail(c, http.StatusNotFound, "没有可返回的图片")
+		return
+	}
+
+	model.Success(c, "success", buildImageResponse(img))
+}
+
+func randomBaseQuery(c *gin.Context) *gorm.DB {
+	query := config.DB.Model(&model.Image{}).Where("is_unhealthy = ?", false)
+	userID := c.GetUint("user_id")
+	if userID > 0 {
+		return query.Where("user_id = ?", userID)
+	}
+	return query.Where("permission = ?", 1)
+}
+
+func applyRandomFilters(query *gorm.DB, c *gin.Context) *gorm.DB {
+	if albumID := c.Query("album_id"); albumID != "" {
+		if albumID == "0" {
+			query = query.Where("album_id IS NULL")
+		} else {
+			query = query.Where("album_id = ?", albumID)
+		}
+	}
+	if orientation := c.Query("orientation"); orientation != "" {
+		query = applyOrientationFilter(query, orientation)
+	}
+	if ratio := c.Query("ratio"); ratio != "" {
+		query = applyRatioFilter(query, ratio)
+	}
+	if v, ok := uintQuery(c, "min_width"); ok {
+		query = query.Where("width >= ?", v)
+	}
+	if v, ok := uintQuery(c, "max_width"); ok {
+		query = query.Where("width <= ?", v)
+	}
+	if v, ok := uintQuery(c, "min_height"); ok {
+		query = query.Where("height >= ?", v)
+	}
+	if v, ok := uintQuery(c, "max_height"); ok {
+		query = query.Where("height <= ?", v)
+	}
+	return query
+}
+
+func applyOrientationFilter(query *gorm.DB, orientation string) *gorm.DB {
+	switch strings.ToLower(strings.TrimSpace(orientation)) {
+	case "landscape":
+		return query.Where("width > height")
+	case "portrait":
+		return query.Where("height > width")
+	case "square":
+		return query.Where("width = height")
+	default:
+		return query
+	}
+}
+
+func applyRatioFilter(query *gorm.DB, ratioText string) *gorm.DB {
+	ratio, ok := parseRatio(ratioText)
+	if !ok || ratio <= 0 {
+		return query
+	}
+	minRatio := ratio * 0.95
+	maxRatio := ratio * 1.05
+	return query.Where("height > 0 AND (CAST(width AS REAL) / CAST(height AS REAL)) BETWEEN ? AND ?", minRatio, maxRatio)
+}
+
+func parseRatio(value string) (float64, bool) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0, false
+	}
+	if strings.Contains(value, ":") {
+		parts := strings.SplitN(value, ":", 2)
+		w, wErr := strconv.ParseFloat(strings.TrimSpace(parts[0]), 64)
+		h, hErr := strconv.ParseFloat(strings.TrimSpace(parts[1]), 64)
+		if wErr != nil || hErr != nil || h == 0 {
+			return 0, false
+		}
+		return w / h, true
+	}
+	ratio, err := strconv.ParseFloat(value, 64)
+	return ratio, err == nil
+}
+
+func uintQuery(c *gin.Context, key string) (uint, bool) {
+	value := c.Query(key)
+	if value == "" {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return uint(n), true
+}
+
+func pickRandomImage(query *gorm.DB) (model.Image, error) {
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return model.Image{}, err
+	}
+	if total <= 0 {
+		return model.Image{}, errors.New("no image")
+	}
+	offset := int(time.Now().UnixNano() % total)
+	var img model.Image
+	if err := query.Offset(offset).Limit(1).Find(&img).Error; err != nil {
+		return model.Image{}, err
+	}
+	if img.ID == 0 {
+		return model.Image{}, errors.New("no image")
+	}
+	return img, nil
+}
+
+func adaptiveTarget(userAgent string) (orientation string, ratio string) {
+	ua := strings.ToLower(userAgent)
+	switch {
+	case strings.Contains(ua, "iphone"), strings.Contains(ua, "ipod"):
+		return "portrait", "9:16"
+	case strings.Contains(ua, "android") && strings.Contains(ua, "mobile"):
+		return "portrait", "9:16"
+	case strings.Contains(ua, "ipad"):
+		return "landscape", "4:3"
+	case strings.Contains(ua, "android"):
+		return "landscape", "16:9"
+	case strings.Contains(ua, "windows"), strings.Contains(ua, "macintosh"), strings.Contains(ua, "mac os"):
+		return "landscape", "16:9"
+	default:
+		return "landscape", ""
+	}
 }
 
 // ImageDTO wraps model.Image with a computed URL field

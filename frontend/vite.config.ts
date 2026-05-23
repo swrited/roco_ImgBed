@@ -17,7 +17,11 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
+      '^/api(?:/|$)': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '^/images/(random|adaptive)(?:\\?|$)': {
         target: 'http://localhost:8000',
         changeOrigin: true,
       },

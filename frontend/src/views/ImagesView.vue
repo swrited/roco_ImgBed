@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { imagesApi } from '@/api/images'
 import { albumsApi } from '@/api/albums'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -18,7 +19,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
-import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Eye, EyeOff } from 'lucide-vue-next'
+import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Eye, EyeOff, Link2, ExternalLink, Check } from 'lucide-vue-next'
 import type { Album, Image } from '@/types'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -42,9 +43,24 @@ const filterPermission = ref('__all__')
 
 const showMoveDialog = ref(false)
 const showRenameDialog = ref(false)
+const showLinksDialog = ref(false)
+const showPreviewDialog = ref(false)
+const previewImage = ref<Image | null>(null)
 const renameKey = ref('')
 const renameName = ref('')
 const moveAlbumId = ref<string>('__none__')
+const linkFormat = ref<'url' | 'markdown' | 'html' | 'bbcode'>('url')
+
+const selectedImages = computed(() => {
+  const selected = new Set(selectedKeys.value)
+  return images.value.filter((image) => selected.has(image.key))
+})
+
+const generatedLinks = computed(() => {
+  return selectedImages.value
+    .map((image) => formatImageLink(image, linkFormat.value))
+    .join('\n')
+})
 
 async function loadImages(page = 1) {
   loading.value = true
@@ -80,9 +96,50 @@ function toggleSelect(key: string) {
   else selectedKeys.value.push(key)
 }
 
+function openPreview(image: Image) {
+  previewImage.value = image
+  showPreviewDialog.value = true
+}
+
 function copyLink(url: string) {
   navigator.clipboard.writeText(url)
   toast.success('链接已复制')
+}
+
+function getImageAlt(image: Image): string {
+  return image.origin_name || image.name || image.key
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function formatImageLink(image: Image, format: typeof linkFormat.value): string {
+  const url = image.url
+  const alt = getImageAlt(image)
+
+  if (format === 'markdown') return `![${alt}](${url})`
+  if (format === 'html') return `<img src="${url}" alt="${escapeHtml(alt)}" />`
+  if (format === 'bbcode') return `[img]${url}[/img]`
+  return url
+}
+
+function openLinksDialog() {
+  if (selectedImages.value.length === 0) {
+    toast.error('请先选择图片')
+    return
+  }
+  showLinksDialog.value = true
+}
+
+function copyGeneratedLinks() {
+  if (!generatedLinks.value) return
+  navigator.clipboard.writeText(generatedLinks.value)
+  toast.success(`已复制 ${selectedImages.value.length} 张图片链接`)
 }
 
 async function deleteImages(keys: string[]) {
@@ -163,6 +220,9 @@ onMounted(() => {
       <h1 class="text-2xl font-bold">图片管理</h1>
       <div class="flex items-center gap-2" v-if="selectedKeys.length > 0">
         <Badge variant="secondary">{{ selectedKeys.length }} 张已选</Badge>
+        <Button variant="outline" size="sm" @click="openLinksDialog">
+          <Link2 class="mr-1 h-4 w-4" /> 生成链接
+        </Button>
         <Button variant="outline" size="sm" @click="setPermission(selectedKeys, 1)">
           <Eye class="mr-1 h-4 w-4" /> 设为公开
         </Button>
@@ -190,11 +250,12 @@ onMounted(() => {
         />
       </div>
       <Select v-model="filterAlbumId" @update:model-value="loadImages()">
-        <SelectTrigger class="w-36">
+        <SelectTrigger class="w-40">
           <SelectValue placeholder="全部相册" />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="__all__">全部相册</SelectItem>
+          <SelectItem value="0">未分类图片</SelectItem>
           <SelectItem v-for="a in albums" :key="a.id" :value="String(a.id)">
             {{ a.name }}
           </SelectItem>
@@ -234,13 +295,37 @@ onMounted(() => {
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <Card
         v-for="img in images" :key="img.key"
-        class="cursor-pointer group overflow-hidden"
-        :class="selectedKeys.includes(img.key) ? 'ring-2 ring-primary' : ''"
-        @click="toggleSelect(img.key)"
+        class="cursor-zoom-in group overflow-hidden transition-all"
+        :class="selectedKeys.includes(img.key) ? 'scale-[0.985] shadow-2xl shadow-primary/25 bg-primary/10' : ''"
+        @click="openPreview(img)"
       >
         <div class="relative aspect-square overflow-hidden rounded-t-lg">
           <img :src="img.url" :alt="img.name" class="h-full w-full object-cover" loading="lazy" />
-          <div class="absolute top-2 left-2">
+          <div
+            v-if="selectedKeys.includes(img.key)"
+            class="pointer-events-none absolute inset-0 z-10 bg-black/35"
+          />
+          <div
+            v-if="selectedKeys.includes(img.key)"
+            class="pointer-events-none absolute inset-0 z-20 flex items-center justify-center"
+          >
+            <div class="flex h-16 w-16 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-2xl shadow-primary/50">
+              <Check class="h-8 w-8" />
+            </div>
+          </div>
+          <div class="absolute left-2 top-2 z-30 flex items-center gap-2">
+            <button
+              type="button"
+              class="flex h-10 w-10 items-center justify-center rounded-lg border border-white/30 bg-black/65 text-white shadow-lg backdrop-blur transition-all hover:border-primary hover:bg-primary/35"
+              :class="selectedKeys.includes(img.key) ? 'border-primary bg-primary text-primary-foreground shadow-primary/40' : ''"
+              @click.stop="toggleSelect(img.key)"
+            >
+              <Check v-if="selectedKeys.includes(img.key)" class="h-4 w-4" />
+            </button>
+            <Badge
+              v-if="selectedKeys.includes(img.key)"
+              class="border-primary bg-primary text-primary-foreground shadow-lg shadow-primary/40 hover:bg-primary"
+            >已选</Badge>
             <Badge
               v-if="img.permission === 1"
               class="text-xs py-0 bg-emerald-500/80 hover:bg-emerald-500/80 text-white border-0"
@@ -250,7 +335,7 @@ onMounted(() => {
               class="text-xs py-0 bg-black/50 hover:bg-black/50 text-white border-0"
             >私密</Badge>
           </div>
-          <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <div class="absolute top-2 right-2 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <Button variant="secondary" size="icon" class="h-8 w-8" @click.stop>
@@ -277,7 +362,7 @@ onMounted(() => {
             </DropdownMenu>
           </div>
         </div>
-        <CardContent class="p-3">
+        <CardContent class="p-3 transition-colors" :class="selectedKeys.includes(img.key) ? 'bg-primary/15' : ''">
           <p class="text-sm truncate font-medium">{{ img.name || img.origin_name }}</p>
           <p class="text-xs text-muted-foreground">
             {{ img.width }}x{{ img.height }} · {{ formatSize(img.size) }}
@@ -311,6 +396,84 @@ onMounted(() => {
         </PaginationContent>
       </Pagination>
     </div>
+
+    <!-- Link Dialog -->
+    <Dialog v-model:open="showLinksDialog">
+      <DialogContent class="sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>生成图片链接</DialogTitle>
+          <DialogDescription>
+            已选 {{ selectedImages.length }} 张图片，选择格式后复制即可使用。
+          </DialogDescription>
+        </DialogHeader>
+        <div class="space-y-4">
+          <div class="space-y-2">
+            <Label for="link-format">链接格式</Label>
+            <Select v-model="linkFormat">
+              <SelectTrigger id="link-format">
+                <SelectValue placeholder="选择链接格式" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="url">直链 URL</SelectItem>
+                <SelectItem value="markdown">Markdown</SelectItem>
+                <SelectItem value="html">HTML</SelectItem>
+                <SelectItem value="bbcode">BBCode</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <Textarea
+            class="min-h-56 font-mono text-xs"
+            readonly
+            :model-value="generatedLinks"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" @click="showLinksDialog = false">关闭</Button>
+          <Button @click="copyGeneratedLinks">
+            <Copy class="mr-2 h-4 w-4" /> 复制链接
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Preview Dialog -->
+    <Dialog v-model:open="showPreviewDialog">
+      <DialogContent class="sm:max-w-5xl">
+        <DialogHeader class="min-w-0">
+          <DialogTitle class="break-all leading-6">{{ previewImage?.name || previewImage?.origin_name || '图片预览' }}</DialogTitle>
+          <DialogDescription>
+            查看大图、复制链接或打开原图。
+          </DialogDescription>
+        </DialogHeader>
+        <div v-if="previewImage" class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <div class="overflow-hidden rounded-xl border bg-black">
+            <img
+              :src="previewImage.url"
+              :alt="getImageAlt(previewImage)"
+              class="max-h-[72vh] w-full object-contain"
+            />
+          </div>
+          <div class="min-w-0 space-y-4">
+            <div class="min-w-0 rounded-xl border p-4 text-sm">
+              <p class="break-all font-medium leading-6">{{ previewImage.origin_name || previewImage.name }}</p>
+              <div class="mt-3 space-y-2 text-muted-foreground">
+                <p>{{ previewImage.width }}x{{ previewImage.height }}</p>
+                <p>{{ formatSize(previewImage.size) }}</p>
+                <p>{{ previewImage.permission === 1 ? '公开图片' : '私密图片' }}</p>
+              </div>
+            </div>
+            <Button class="w-full" @click="copyLink(previewImage.url)">
+              <Copy class="mr-2 h-4 w-4" /> 复制直链
+            </Button>
+            <Button variant="outline" class="w-full" as-child>
+              <a :href="previewImage.url" target="_blank" rel="noreferrer">
+                <ExternalLink class="mr-2 h-4 w-4" /> 打开原图
+              </a>
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
 
     <!-- Rename Dialog -->
     <Dialog v-model:open="showRenameDialog">

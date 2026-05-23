@@ -38,6 +38,7 @@ func (h *UserHandler) Profile(c *gin.Context) {
 		"avatar":        user.ToProfile().Avatar,
 		"status":        user.Status,
 		"group_id":      user.GroupID,
+		"configs":       user.Configs,
 		"created_at":    user.CreatedAt,
 	})
 }
@@ -164,10 +165,11 @@ func (h *UserHandler) Settings(c *gin.Context) {
 		return
 	}
 	model.Success(c, "success", gin.H{
-		"name":    user.Name,
-		"email":   user.Email,
-		"url":     user.URL,
-		"configs": user.Configs,
+		"name":            user.Name,
+		"email":           user.Email,
+		"url":             user.URL,
+		"configs":         user.Configs,
+		"upload_max_size": systemConfigInt("upload_max_size", 10240),
 	})
 }
 
@@ -219,6 +221,61 @@ func (h *UserHandler) SetStrategy(c *gin.Context) {
 	user.Configs["default_strategy"] = input.StrategyID
 	config.DB.Model(&user).Update("configs", user.Configs)
 
+	model.Success(c, "设置成功", nil)
+}
+
+func (h *UserHandler) SetPermission(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var input struct {
+		Permission uint `json:"permission"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
+		return
+	}
+
+	var user model.User
+	config.DB.First(&user, userID)
+	if user.Configs == nil {
+		user.Configs = model.JSONMap{}
+	}
+	user.Configs["default_permission"] = input.Permission
+	config.DB.Model(&user).Update("configs", user.Configs)
+
+	model.Success(c, "设置成功", nil)
+}
+
+func (h *UserHandler) SetAlbum(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var input struct {
+		AlbumID *uint `json:"album_id"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil {
+		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
+		return
+	}
+
+	var user model.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "用户不存在")
+		return
+	}
+	if user.Configs == nil {
+		user.Configs = model.JSONMap{}
+	}
+
+	if input.AlbumID == nil || *input.AlbumID == 0 {
+		delete(user.Configs, "default_album_id")
+	} else {
+		var album model.Album
+		if err := config.DB.Where("id = ? AND user_id = ?", *input.AlbumID, userID).First(&album).Error; err != nil {
+			model.Fail(c, http.StatusUnprocessableEntity, "相册不存在")
+			return
+		}
+		user.Configs["default_album_id"] = *input.AlbumID
+	}
+
+	config.DB.Model(&user).Update("configs", user.Configs)
 	model.Success(c, "设置成功", nil)
 }
 

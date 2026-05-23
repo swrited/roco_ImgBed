@@ -8,8 +8,11 @@ export interface User {
   image_num: number
   album_num: number
   used_capacity?: number
+  remaining_capacity?: number
+  capacity_percent?: number
   is_adminer: boolean
   group_id: number
+  configs?: Record<string, any>
   created_at: string
 }
 
@@ -52,8 +55,11 @@ export interface Group {
   id: number
   name: string
   is_default: boolean
+  is_guest: boolean
   configs: Record<string, any>
   strategies?: Strategy[]
+  users_count?: number
+  strategies_count?: number
 }
 
 export interface PaginatedResponse<T> {

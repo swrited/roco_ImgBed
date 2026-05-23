@@ -2,6 +2,8 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"lskypro-server/internal/config"
@@ -29,12 +31,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	var user model.User
 	if err := config.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
-		model.Fail(c, http.StatusUnauthorized, "邮箱或密码错误")
+		model.Fail(c, http.StatusUnauthorized, "账号不存在")
 		return
 	}
 
 	if !config.CheckPassword(input.Password, user.Password) {
-		model.Fail(c, http.StatusUnauthorized, "邮箱或密码错误")
+		model.Fail(c, http.StatusUnauthorized, "账号或密码错误")
 		return
 	}
 
@@ -67,15 +69,26 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 type RegisterInput struct {
-	Name     string `json:"name" binding:"required,max=255"`
-	Email    string `json:"email" binding:"required,email,max=255"`
-	Password string `json:"password" binding:"required,min=6,max=32"`
+	Name                 string `json:"name" binding:"required,max=255"`
+	Email                string `json:"email" binding:"required,email,max=255"`
+	Password             string `json:"password" binding:"required,min=6,max=32"`
+	PasswordConfirmation string `json:"password_confirmation"`
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	var input RegisterInput
 	if err := c.ShouldBindJSON(&input); err != nil {
-		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
+		model.Fail(c, http.StatusUnprocessableEntity, "请填写有效邮箱，密码长度需为 6-32 位")
+		return
+	}
+	input.Name = strings.TrimSpace(input.Name)
+	input.Email = strings.TrimSpace(input.Email)
+	if input.Name == "" {
+		model.Fail(c, http.StatusUnprocessableEntity, "用户名不能为空")
+		return
+	}
+	if input.PasswordConfirmation != "" && input.Password != input.PasswordConfirmation {
+		model.Fail(c, http.StatusUnprocessableEntity, "两次密码输入不一致")
 		return
 	}
 
@@ -88,6 +101,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	passwordHash, _ := config.HashPassword(input.Password)
+	initialCapacity := defaultUserCapacity()
 
 	var defaultGroup model.Group
 	if err := config.DB.Where("is_default = ?", true).First(&defaultGroup).Error; err != nil {
@@ -101,6 +115,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		Password:     passwordHash,
 		RegisteredIP: c.ClientIP(),
 		GroupID:      &defaultGroup.ID,
+		Configs:      model.JSONMap{"default_permission": 0},
+		Capacity:     initialCapacity,
 		Status:       1,
 	}
 
@@ -122,4 +138,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		"token": tokenString,
 		"user":  user.ToProfile(),
 	})
+}
+
+func defaultUserCapacity() float64 {
+	var cfg model.SystemConfig
+	if err := config.DB.Where("name = ?", "user_initial_capacity").First(&cfg).Error; err != nil {
+		return 512000
+	}
+	capacity, err := strconv.ParseFloat(strings.TrimSpace(cfg.Value), 64)
+	if err != nil || capacity < 0 {
+		return 512000
+	}
+	return capacity
 }

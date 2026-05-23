@@ -1,36 +1,15 @@
-# Monorepo 根级 gitignore
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
 .DS_Store
-Thumbs.db
-
-# 环境文件
 .env
-.env.local
-
-# 构建产物
-dist/
-dist-ssr/
-
-# 日志
-*.log
-
-# 数据库
 *.db
 
-# 压缩包
-*.zip
+# Backend runtime artifacts
+backend-go/server
+backend-go/uploads/
+backend-go/*.db
 
-# Claude
-.claude/
-
-# 旧 Laravel 项目
-backend/
-
+# Frontend dependencies and build output
+frontend/node_modules/
+frontend/dist/
+frontend/*.db
+frontend/.agents/
+frontend/skills-lock.json

@@ -12,11 +12,21 @@ import (
 func Setup(cfg *config.Config) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.CORSMiddleware())
+	r.Use(middleware.APIUsageLogger())
 
 	// Health check
 	r.GET("/api/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
 	})
+
+	// Public random image aliases for direct backend usage.
+	publicImageH := handler.NewImageHandler()
+	publicImages := r.Group("/images")
+	publicImages.Use(middleware.ApiKeyAuth())
+	{
+		publicImages.GET("/random", publicImageH.Random)
+		publicImages.GET("/adaptive", publicImageH.Adaptive)
+	}
 
 	api := r.Group("/api/v1")
 	{
@@ -31,8 +41,17 @@ func Setup(cfg *config.Config) *gin.Engine {
 		apiPub := api.Group("")
 		apiPub.Use(middleware.OptionalAuthOrApiKey(cfg))
 		{
-			apiPub.GET("/gallery", handler.NewImageHandler().Gallery)
+			imgH := handler.NewImageHandler()
+			apiPub.GET("/gallery", imgH.Gallery)
 			apiPub.GET("/strategies", handler.NewStrategyHandler().List)
+		}
+
+		apiKeyOnly := api.Group("")
+		apiKeyOnly.Use(middleware.ApiKeyAuth())
+		{
+			imgH := handler.NewImageHandler()
+			apiKeyOnly.GET("/images/random", imgH.Random)
+			apiKeyOnly.GET("/images/adaptive", imgH.Adaptive)
 		}
 
 		// Upload (optional auth - supports guest, Bearer token, or api_key)
@@ -50,6 +69,8 @@ func Setup(cfg *config.Config) *gin.Engine {
 			imgH := handler.NewImageHandler()
 			albumH := handler.NewAlbumHandler()
 			apiKeyH := handler.NewApiKeyHandler()
+			apiUsageH := handler.NewAPIUsageHandler()
+			aiImageH := handler.NewAIImageHandler()
 
 			// Profile
 			authed.GET("/profile", userH.Profile)
@@ -62,11 +83,14 @@ func Setup(cfg *config.Config) *gin.Engine {
 			authed.GET("/user/settings", userH.Settings)
 			authed.PUT("/user/settings", userH.UpdateSettings)
 			authed.PUT("/user/settings/strategy", userH.SetStrategy)
+			authed.PUT("/user/settings/permission", userH.SetPermission)
+			authed.PUT("/user/settings/album", userH.SetAlbum)
 
 			// API Keys management
 			authed.GET("/api-keys", apiKeyH.List)
 			authed.POST("/api-keys", apiKeyH.Create)
 			authed.DELETE("/api-keys/:id", apiKeyH.Revoke)
+			authed.GET("/api-usage", apiUsageH.UserStats)
 
 			// Images
 			authed.GET("/images", imgH.ListImages)
@@ -75,6 +99,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 			authed.PUT("/images/rename", imgH.Rename)
 			authed.PUT("/images/movement", imgH.Move)
 			authed.PUT("/images/permission", imgH.Permission)
+
+			// AI image generation
+			authed.POST("/ai/images", aiImageH.Generate)
 
 			// Albums
 			authed.GET("/albums", albumH.List)
@@ -95,8 +122,10 @@ func Setup(cfg *config.Config) *gin.Engine {
 				adminGroupH := admin.NewGroupHandler()
 				adminStrategyH := admin.NewStrategyHandler()
 				adminSettingH := admin.NewSettingHandler()
+				adminAPIUsageH := handler.NewAPIUsageHandler()
 
 				adminGroup.GET("/console", consoleH.Index)
+				adminGroup.GET("/api-usage", adminAPIUsageH.AdminStats)
 
 				// Users
 				adminGroup.GET("/users", adminUserH.List)

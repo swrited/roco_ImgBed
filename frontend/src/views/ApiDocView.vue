@@ -1,523 +1,417 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'vue-sonner'
-import { Copy, Check, Terminal, Image, FolderOpen, KeyRound, CloudUpload, FileImage, Shield, Trash2, Pencil, FolderInput, Eye, EyeOff, BarChart3 } from 'lucide-vue-next'
+import { Check, Copy, Terminal } from 'lucide-vue-next'
+import FieldTable from '@/components/api/FieldTable.vue'
 
-const baseUrl = ref(`${window.location.protocol}//${window.location.host}`)
-const token = ref('')
+type HttpMethod = 'GET' | 'POST'
 
-type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
+interface Field {
+  name: string
+  type: string
+  required?: string
+  desc: string
+}
 
 interface Endpoint {
+  label: string
   method: HttpMethod
   path: string
-  title: string
   desc: string
   auth: boolean
-  body?: string
-  params?: { name: string; type: string; required: string; desc: string }[]
-  query?: { name: string; default?: string; desc: string }[]
-  response?: string
+  query?: Field[]
+  body?: Field[]
+  bodyExample?: string
+  response: Field[]
+  responseExample: string
+  notes?: Field[]
 }
 
-const methodColors: Record<HttpMethod, string> = {
-  GET: 'bg-emerald-500 hover:bg-emerald-500 text-white',
-  POST: 'bg-blue-500 hover:bg-blue-500 text-white',
-  PUT: 'bg-amber-500 hover:bg-amber-500 text-white',
-  DELETE: 'bg-red-500 hover:bg-red-500 text-white',
-}
+const defaultApiBaseUrl = window.location.port === '5173'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : window.location.origin
+const baseUrl = ref(defaultApiBaseUrl)
+const apiKey = ref('')
+const copied = ref<string | null>(null)
 
-const sections = [
+const endpoints: Endpoint[] = [
   {
-    key: 'auth',
-    label: '认证',
-    icon: KeyRound,
-    endpoints: [
-      {
-        method: 'POST' as HttpMethod,
-        path: '/api/v1/tokens',
-        title: '获取 Token',
-        desc: '使用邮箱和密码换取访问令牌，后续请求需在 Header 中携带 Authorization: Bearer {token}',
-        auth: false,
-        body: `{
-  "email": "admin@admin.com",
-  "password": "123456"
+    label: '健康检查',
+    method: 'GET',
+    path: '/api/ping',
+    desc: '检查后端服务是否在线。该接口不需要 API Key。',
+    auth: false,
+    response: [
+      { name: 'message', type: 'String', desc: '固定返回 pong' },
+    ],
+    responseExample: `{
+  "message": "pong"
 }`,
-        response: `{
+  },
+  {
+    label: '公开画廊',
+    method: 'GET',
+    path: '/api/v1/gallery',
+    desc: '分页获取公开图片列表。',
+    auth: true,
+    query: [
+      { name: 'page', type: 'Integer', required: '否', desc: '页码，默认 1' },
+      { name: 'per_page', type: 'Integer', required: '否', desc: '每页数量，默认 20' },
+      { name: 'q', type: 'String', required: '否', desc: '按图片名称搜索' },
+      { name: 'user_id', type: 'Integer', required: '否', desc: '按用户筛选' },
+    ],
+    response: [
+      { name: 'data', type: 'Array<Image>', desc: '公开图片列表' },
+      { name: 'current_page', type: 'Integer', desc: '当前页码' },
+      { name: 'last_page', type: 'Integer', desc: '最后一页' },
+      { name: 'total', type: 'Integer', desc: '总数量' },
+    ],
+    responseExample: `{
   "status": true,
-  "message": "登录成功",
+  "message": "success",
   "data": {
-    "token": "eyJhbGciOiJIUzI1NiIs...",
-    "token_type": "Bearer"
+    "data": [{ "key": "abc123", "url": "https://..." }],
+    "current_page": 1,
+    "last_page": 1,
+    "total": 1
   }
 }`,
-      },
-      {
-        method: 'POST' as HttpMethod,
-        path: '/api/v1/register',
-        title: '用户注册',
-        desc: '注册新用户账户',
-        auth: false,
-        body: `{
-  "name": "用户名",
-  "email": "user@example.com",
-  "password": "your-password"
-}`,
-      },
-      {
-        method: 'DELETE' as HttpMethod,
-        path: '/api/v1/tokens',
-        title: '退出登录',
-        desc: '使当前 Token 失效',
-        auth: true,
-      },
-    ] as Endpoint[],
   },
   {
-    key: 'upload',
-    label: '上传',
-    icon: CloudUpload,
-    endpoints: [
-      {
-        method: 'POST' as HttpMethod,
-        path: '/api/v1/upload',
-        title: '上传图片',
-        desc: '支持 multipart/form-data 方式上传图片文件。游客上传需在后台开启对应开关。',
-        auth: false,
-        params: [
-          { name: 'file', type: 'File', required: '是', desc: '图片文件（jpg/png/gif/webp 等）' },
-          { name: 'strategy_id', type: 'Int', required: '否', desc: '指定存储策略 ID，留空使用默认策略' },
-          { name: 'album_id', type: 'Int', required: '否', desc: '指定归属相册 ID' },
-        ],
-        response: `{
+    label: '随机图',
+    method: 'GET',
+    path: '/api/v1/images/random',
+    desc: '随机返回当前 API Key 所属用户的一张图片。支持按相册、方向、比例和尺寸筛选。',
+    auth: true,
+    query: [
+      { name: 'album_id', type: 'Integer', required: '否', desc: '相册 ID，传 0 表示未分类' },
+      { name: 'orientation', type: 'String', required: '否', desc: 'landscape / portrait / square' },
+      { name: 'ratio', type: 'String', required: '否', desc: '16:9、4:3、3:2 或小数 1.778，容差 ±5%' },
+      { name: 'min_width', type: 'Integer', required: '否', desc: '最小宽度 px' },
+      { name: 'max_width', type: 'Integer', required: '否', desc: '最大宽度 px' },
+      { name: 'min_height', type: 'Integer', required: '否', desc: '最小高度 px' },
+      { name: 'max_height', type: 'Integer', required: '否', desc: '最大高度 px' },
+    ],
+    response: imageResponseFields(),
+    responseExample: imageResponseExample(),
+  },
+  {
+    label: '设备自适应图',
+    method: 'GET',
+    path: '/api/v1/images/adaptive',
+    desc: '根据请求 User-Agent 自动返回适配设备画幅的图片。回退规则：比例不匹配 -> 仅按方向 -> 完全随机。',
+    auth: true,
+    notes: [
+      { name: 'iPhone / iPod', type: 'portrait', desc: '竖版图片，优先匹配竖向比例' },
+      { name: 'Android 手机', type: 'portrait', desc: '竖版图片，优先匹配竖向比例' },
+      { name: 'iPad', type: '4:3', desc: '横版 4:3 图片' },
+      { name: 'Android 平板', type: '16:9', desc: '横版 16:9 图片' },
+      { name: 'Windows / Mac', type: '16:9', desc: '横版 16:9 图片' },
+      { name: '其他设备', type: 'landscape', desc: '横版 fallback；比例不匹配时会继续回退到方向或完全随机' },
+    ],
+    response: imageResponseFields(),
+    responseExample: imageResponseExample(),
+  },
+  {
+    label: 'AI 生图',
+    method: 'POST',
+    path: '/api/v1/ai/images',
+    desc: '调用 MiniMax 生成图片，并自动保存到当前用户的“AI 生成”相册。',
+    auth: true,
+    body: [
+      { name: 'prompt', type: 'String', required: '是', desc: '提示词，最多 1500 字符' },
+      { name: 'aspect_ratio', type: 'String', required: '否', desc: '1:1 / 16:9 / 4:3 / 3:2 / 2:3 / 3:4 / 9:16 / 21:9' },
+      { name: 'count', type: 'Integer', required: '否', desc: '生成数量，受后台单次最大数量限制' },
+      { name: 'prompt_optimizer', type: 'Boolean', required: '否', desc: '是否启用提示词优化' },
+    ],
+    bodyExample: `{
+  "prompt": "一张极简科技风的紫色星空图片",
+  "aspect_ratio": "1:1",
+  "count": 1,
+  "prompt_optimizer": true
+}`,
+    response: [
+      { name: 'album', type: 'Object', desc: 'AI 生成相册信息' },
+      { name: 'images', type: 'Array<Image>', desc: '生成并保存后的图片列表' },
+    ],
+    responseExample: `{
   "status": true,
-  "message": "上传成功",
+  "message": "生成成功",
   "data": {
-    "key": "abc123",
-    "name": "2025/05/20/a1b2c3d4e5f6.jpg",
-    "pathname": "2025/05/20/a1b2c3d4e5f6.jpg",
-    "origin_name": "photo.jpg",
-    "size": 256.5,
-    "mimetype": "image/jpeg",
-    "extension": "jpg",
-    "md5": "...",
-    "sha1": "...",
-    "links": {
-      "url": "https://example.com/i/2025/05/20/a1b2c3d4e5f6.jpg",
-      "html": "<img src=\"...\" />",
-      "bbcode": "[img]...[/img]",
-      "markdown": "![](...)",
-      "markdown_with_link": "[![](...)](...)",
-      "thumbnail_url": "..."
-    }
+    "album": { "id": 4, "name": "AI 生成" },
+    "images": [{ "key": "abc123", "links": { "url": "https://..." } }]
   }
 }`,
-      },
-    ] as Endpoint[],
   },
   {
-    key: 'images',
-    label: '图片',
-    icon: FileImage,
-    endpoints: [
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/images',
-        title: '图片列表',
-        desc: '获取当前登录用户的图片列表，支持分页、相册筛选和排序。',
-        auth: true,
-        query: [
-          { name: 'page', default: '1', desc: '页码' },
-          { name: 'per_page', default: '20', desc: '每页数量（最大 100）' },
-          { name: 'album_id', desc: '按相册筛选' },
-          { name: 'permission', desc: '按权限筛选（1=公开，0=私密）' },
-          { name: 'q', desc: '按名称搜索' },
-          { name: 'sort', default: 'newest', desc: '排序：newest/earliest/utmost/least' },
-        ],
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/images/rename',
-        title: '重命名',
-        desc: '修改图片别名',
-        auth: true,
-        body: `{
-  "key": "abc123",
-  "alias_name": "新名称.jpg"
+    label: '图片列表',
+    method: 'GET',
+    path: '/api/v1/images',
+    desc: '获取当前用户图片列表。',
+    auth: true,
+    query: [
+      { name: 'page', type: 'Integer', required: '否', desc: '页码，默认 1' },
+      { name: 'per_page', type: 'Integer', required: '否', desc: '每页数量，最大 100' },
+      { name: 'album_id', type: 'Integer', required: '否', desc: '相册 ID，传 0 表示未分类' },
+      { name: 'permission', type: 'Integer', required: '否', desc: '1 公开，0 私密' },
+      { name: 'q', type: 'String', required: '否', desc: '按名称搜索' },
+      { name: 'sort', type: 'String', required: '否', desc: 'newest / earliest / utmost / least' },
+    ],
+    response: [
+      { name: 'data', type: 'Array<Image>', desc: '图片列表' },
+      { name: 'current_page', type: 'Integer', desc: '当前页码' },
+      { name: 'last_page', type: 'Integer', desc: '最后一页' },
+      { name: 'total', type: 'Integer', desc: '总数量' },
+    ],
+    responseExample: `{
+  "status": true,
+  "message": "success",
+  "data": {
+    "data": [{ "key": "abc123", "url": "https://..." }],
+    "current_page": 1,
+    "last_page": 1,
+    "total": 1
+  }
 }`,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/images/movement',
-        title: '移动到相册',
-        desc: '批量移动图片到指定相册，album_id 传 null 则移出相册',
-        auth: true,
-        body: `{
-  "keys": ["abc123", "def456"],
-  "album_id": 1
-}`,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/images/permission',
-        title: '设置权限',
-        desc: '批量设置图片公开或私密',
-        auth: true,
-        body: `{
-  "keys": ["abc123", "def456"],
-  "permission": 1
-}`,
-      },
-      {
-        method: 'DELETE' as HttpMethod,
-        path: '/api/v1/images/{key}',
-        title: '删除单张',
-        desc: '根据 key 删除单张图片',
-        auth: true,
-      },
-      {
-        method: 'DELETE' as HttpMethod,
-        path: '/api/v1/images',
-        title: '批量删除',
-        desc: '根据 keys 数组批量删除',
-        auth: true,
-        body: `{
-  "keys": ["abc123", "def456"]
-}`,
-      },
-    ] as Endpoint[],
   },
   {
-    key: 'albums',
-    label: '相册',
-    icon: FolderOpen,
-    endpoints: [
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/albums',
-        title: '相册列表',
-        desc: '获取当前用户的所有相册',
-        auth: true,
-      },
-      {
-        method: 'POST' as HttpMethod,
-        path: '/api/v1/albums',
-        title: '创建相册',
-        desc: '创建新相册',
-        auth: true,
-        body: `{
-  "name": "旅行照片",
-  "intro": "2024 年旅行记录"
+    label: '相册列表',
+    method: 'GET',
+    path: '/api/v1/albums',
+    desc: '获取当前用户的所有相册。',
+    auth: true,
+    response: [
+      { name: 'id', type: 'Integer', desc: '相册 ID' },
+      { name: 'name', type: 'String', desc: '相册名称' },
+      { name: 'intro', type: 'String', desc: '相册简介' },
+      { name: 'image_num', type: 'Integer', desc: '图片数量' },
+      { name: 'created_at', type: 'String', desc: '创建时间' },
+    ],
+    responseExample: `{
+  "status": true,
+  "message": "success",
+  "data": [
+    { "id": 1, "name": "测试相册", "intro": "API 测试创建", "image_num": 0 }
+  ]
 }`,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/albums/{id}',
-        title: '更新相册',
-        desc: '修改相册名称或简介',
-        auth: true,
-        body: `{
-  "name": "新名称",
-  "intro": "新简介"
-}`,
-      },
-      {
-        method: 'DELETE' as HttpMethod,
-        path: '/api/v1/albums/{id}',
-        title: '删除相册',
-        desc: '删除相册（相册内图片不会被删除）',
-        auth: true,
-      },
-    ] as Endpoint[],
   },
   {
-    key: 'public',
-    label: '公开',
-    icon: Image,
-    endpoints: [
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/gallery',
-        title: '公开画廊',
-        desc: '获取所有用户设置为公开的图片列表，无需登录',
-        auth: false,
-        query: [
-          { name: 'page', default: '1', desc: '页码' },
-          { name: 'per_page', default: '20', desc: '每页数量' },
-          { name: 'q', desc: '按名称搜索' },
-          { name: 'user_id', desc: '按用户筛选' },
-        ],
-      },
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/strategies',
-        title: '存储策略列表',
-        desc: '获取系统启用的存储策略列表，无需登录',
-        auth: false,
-      },
-    ] as Endpoint[],
-  },
-  {
-    key: 'user',
-    label: '用户',
-    icon: Shield,
-    endpoints: [
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/profile',
-        title: '个人信息',
-        desc: '获取当前登录用户的基本信息',
-        auth: true,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/profile',
-        title: '更新信息',
-        desc: '修改用户名称、头像等信息',
-        auth: true,
-        body: `{
-  "name": "新昵称",
-  "avatar": "https://..."
+    label: '创建相册',
+    method: 'POST',
+    path: '/api/v1/albums',
+    desc: '创建一个新相册。',
+    auth: true,
+    body: [
+      { name: 'name', type: 'String', required: '是', desc: '相册名称' },
+      { name: 'intro', type: 'String', required: '否', desc: '相册简介' },
+    ],
+    bodyExample: `{
+  "name": "测试相册",
+  "intro": "API 测试创建"
 }`,
-      },
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/dashboard',
-        title: '仪表盘数据',
-        desc: '获取用户统计概览（图片数、占用空间等）',
-        auth: true,
-      },
-      {
-        method: 'GET' as HttpMethod,
-        path: '/api/v1/user/settings',
-        title: '用户设置',
-        desc: '获取当前用户的偏好设置',
-        auth: true,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/user/settings',
-        title: '更新设置',
-        desc: '修改用户偏好设置',
-        auth: true,
-      },
-      {
-        method: 'PUT' as HttpMethod,
-        path: '/api/v1/user/settings/strategy',
-        title: '设置默认策略',
-        desc: '设置用户默认使用的存储策略',
-        auth: true,
-        body: `{
-  "strategy_id": 2
+    response: [
+      { name: 'id', type: 'Integer', desc: '相册 ID' },
+      { name: 'name', type: 'String', desc: '相册名称' },
+      { name: 'intro', type: 'String', desc: '相册简介' },
+      { name: 'image_num', type: 'Integer', desc: '图片数量' },
+    ],
+    responseExample: `{
+  "status": true,
+  "message": "创建成功",
+  "data": { "id": 1, "name": "测试相册", "intro": "API 测试创建" }
 }`,
-      },
-    ] as Endpoint[],
   },
 ]
 
-const activeTab = ref('auth')
+const endpointCount = computed(() => endpoints.length)
 
-function copyCode(text: string) {
-  navigator.clipboard.writeText(text)
-  toast.success('已复制到剪贴板')
+const authFields: Field[] = [
+  { name: 'X-Api-Key', type: 'String', required: '是', desc: '在请求 Header 中传入用户 API Key。除健康检查外，文档内业务接口都必须携带。' },
+]
+
+const linkFields: Field[] = [
+  { name: 'links.url', type: 'String', desc: '图片直链，适合在浏览器或客户端直接访问' },
+  { name: 'links.html', type: 'String', desc: 'HTML img 标签代码' },
+  { name: 'links.markdown', type: 'String', desc: 'Markdown 图片代码' },
+  { name: 'links.bbcode', type: 'String', desc: 'BBCode 图片代码' },
+  { name: 'links.thumbnail_url', type: 'String', desc: '缩略图直链，如果后端生成缩略图则返回' },
+]
+
+function imageResponseFields(): Field[] {
+  return [
+    { name: 'key', type: 'String', desc: '图片唯一密钥' },
+    { name: 'name', type: 'String', desc: '图片名称' },
+    { name: 'origin_name', type: 'String', desc: '原始文件名' },
+    { name: 'pathname', type: 'String', desc: '图片路径名' },
+    { name: 'size', type: 'Float', desc: '图片大小，单位 KB' },
+    { name: 'width', type: 'Integer', desc: '图片宽度 px' },
+    { name: 'height', type: 'Integer', desc: '图片高度 px' },
+    { name: 'md5', type: 'String', desc: '图片 md5 值' },
+    { name: 'sha1', type: 'String', desc: '图片 sha1 值' },
+    { name: 'links', type: 'Object', desc: '链接对象，含 url / html / markdown / bbcode 等' },
+  ]
+}
+
+function imageResponseExample(): string {
+  return `{
+  "status": true,
+  "message": "success",
+  "data": {
+    "key": "abc123",
+    "name": "a1b2c3.jpg",
+    "origin_name": "photo.jpg",
+    "pathname": "user_1/2026/05/23/a1b2c3.jpg",
+    "size": 256.5,
+    "width": 1920,
+    "height": 1080,
+    "md5": "...",
+    "sha1": "...",
+    "links": {
+      "url": "https://example.com/user_1/2026/05/23/a1b2c3.jpg",
+      "html": "<img src=\\"...\\" />",
+      "markdown": "![](...)",
+      "bbcode": "[img]...[/img]"
+    }
+  }
+}`
+}
+
+function fullUrl(ep: Endpoint): string {
+  return `${baseUrl.value.replace(/\/+$/, '')}${ep.path}`
 }
 
 function curlExample(ep: Endpoint): string {
-  const headers = ep.auth ? ` -H "Authorization: Bearer ${token.value || 'YOUR_TOKEN'}"` : ''
-  const url = `${baseUrl.value}${ep.path}`
-  if (ep.method === 'GET') {
-    return `curl -X GET "${url}"${headers}`
-  }
-  if (ep.body) {
-    return `curl -X ${ep.method} "${url}"${headers} -H "Content-Type: application/json" -d '${ep.body.replace(/\n/g, ' ')}'`
-  }
-  return `curl -X ${ep.method} "${url}"${headers}`
+  const headers = ep.auth ? ` \\\n  -H 'X-Api-Key: ${apiKey.value || 'YOUR_API_KEY'}'` : ''
+  const body = ep.bodyExample ? ` \\\n  -H 'Content-Type: application/json' \\\n  -d '${ep.bodyExample.replace(/\n/g, ' ')}'` : ''
+  return `curl -X ${ep.method} '${fullUrl(ep)}'${headers}${body}`
 }
 
-const copied = ref<string | null>(null)
-function copyCurl(ep: Endpoint) {
-  const text = curlExample(ep)
+function copyText(text: string, key: string) {
   navigator.clipboard.writeText(text)
-  copied.value = ep.path + ep.method
-  setTimeout(() => copied.value = null, 1500)
+  copied.value = key
+  toast.success('已复制')
+  setTimeout(() => {
+    if (copied.value === key) copied.value = null
+  }, 1500)
 }
 </script>
 
 <template>
-  <div class="max-w-4xl">
-    <div class="mb-6 flex items-center justify-between">
+  <div class="space-y-6 text-slate-100">
+    <div class="flex flex-col justify-between gap-4 lg:flex-row lg:items-end">
       <div>
-        <h1 class="text-2xl font-bold">API 文档</h1>
-        <p class="text-sm text-muted-foreground mt-1">洛克图床 REST API 接口参考</p>
+        <p class="text-sm font-medium text-purple-400">Developer API</p>
+        <h1 class="mt-1 text-3xl font-semibold">API 文档</h1>
+        <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+          这里只展示 API 测试台提供的接口。除健康检查外，业务接口统一使用 API Key 认证。
+        </p>
       </div>
-      <Badge variant="secondary" class="text-xs">v1</Badge>
+      <Button variant="outline" @click="$router.push('/api-test')">
+        <Terminal class="mr-2 h-4 w-4" /> 打开测试台
+      </Button>
     </div>
 
-    <!-- Base URL & Token config -->
-    <Card class="mb-6 border-white/5">
-      <CardContent class="p-4">
-        <div class="grid gap-4 sm:grid-cols-2">
-          <div class="space-y-1.5">
-            <Label class="text-xs font-medium text-muted-foreground">Base URL</Label>
-            <Input v-model="baseUrl" class="h-9" />
-          </div>
-          <div class="space-y-1.5">
-            <Label class="text-xs font-medium text-muted-foreground">测试 Token（用于生成 curl 示例）</Label>
-            <Input v-model="token" placeholder="Bearer token..." class="h-9" />
-          </div>
+    <Card class="border-white/10 bg-[#0f0f15] text-slate-100">
+      <CardContent class="grid gap-4 p-4 lg:grid-cols-[1fr_1fr_120px]">
+        <div class="space-y-1.5">
+          <Label class="text-xs text-slate-400">Base URL</Label>
+          <Input v-model="baseUrl" class="h-10 border-white/10 bg-[#09090d] text-slate-100" />
+        </div>
+        <div class="space-y-1.5">
+          <Label class="text-xs text-slate-400">API Key</Label>
+          <Input v-model="apiKey" placeholder="lsky-..." class="h-10 border-white/10 bg-[#09090d] text-slate-100 placeholder:text-slate-500" />
+        </div>
+        <div class="rounded-xl border border-white/10 bg-white/5 p-3 text-sm">
+          <p class="font-semibold">{{ endpointCount }}</p>
+          <p class="text-slate-400">个接口</p>
         </div>
       </CardContent>
     </Card>
 
-    <Tabs v-model="activeTab">
-      <TabsList class="mb-5 flex-wrap h-auto gap-y-1 bg-[#0f0f15] border border-white/5 p-1 rounded-xl">
-        <TabsTrigger
-          v-for="sec in sections" :key="sec.key" :value="sec.key"
-          class="rounded-lg text-xs px-3 py-1.5 data-[state=active]:shadow-sm"
-        >
-          <component :is="sec.icon" class="mr-1.5 h-3.5 w-3.5 inline" />
-          {{ sec.label }}
-        </TabsTrigger>
-      </TabsList>
+    <section class="space-y-4">
+      <Card v-for="ep in endpoints" :key="ep.method + ep.path" class="overflow-hidden border-white/10 bg-[#0f0f15] text-slate-100">
+        <CardHeader class="border-b border-white/10">
+          <div class="flex flex-wrap items-center gap-3">
+            <Badge :class="ep.method === 'GET' ? 'bg-emerald-500 text-white hover:bg-emerald-500' : 'bg-blue-500 text-white hover:bg-blue-500'">
+              {{ ep.method }}
+            </Badge>
+            <code class="rounded-lg border border-white/10 bg-[#09090d] px-2.5 py-1 text-sm font-semibold">{{ ep.path }}</code>
+            <Badge variant="outline" :class="ep.auth ? 'border-blue-400/30 bg-blue-400/10 text-blue-200' : 'border-emerald-400/30 bg-emerald-400/10 text-emerald-200'">
+              {{ ep.auth ? '需 API Key' : '无需认证' }}
+            </Badge>
+          </div>
+          <CardTitle class="pt-2 text-lg">{{ ep.label }}</CardTitle>
+          <CardDescription class="leading-6 text-slate-400">{{ ep.desc }}</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-5 p-5">
+          <div v-if="ep.auth" class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">认证参数</h3>
+            <FieldTable :fields="authFields" location="Header" />
+          </div>
 
-      <TabsContent v-for="sec in sections" :key="sec.key" :value="sec.key" class="space-y-4">
-        <Card v-for="ep in sec.endpoints" :key="ep.path + ep.method" class="border-white/5 overflow-hidden">
-          <CardHeader class="pb-3">
-            <div class="flex flex-wrap items-center gap-3">
-              <Badge :class="['font-mono text-xs px-2 py-0.5', methodColors[ep.method]]">
-                {{ ep.method }}
-              </Badge>
-              <code class="text-sm font-semibold text-foreground">{{ ep.path }}</code>
-              <Badge v-if="ep.auth" variant="outline" class="text-xs text-amber-600 border-amber-200 bg-amber-50">
-                需登录
-              </Badge>
-              <Badge v-else variant="outline" class="text-xs text-emerald-600 border-emerald-200 bg-emerald-50">
-                公开
-              </Badge>
+          <div v-if="ep.query?.length" class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">Query 参数</h3>
+            <FieldTable :fields="ep.query" location="Query" />
+          </div>
+
+          <div v-if="ep.body?.length" class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">JSON Body</h3>
+            <FieldTable :fields="ep.body" location="Body" />
+          </div>
+
+          <div v-if="ep.notes?.length" class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">匹配规则</h3>
+            <FieldTable :fields="ep.notes" location="User-Agent" name-label="设备" type-label="目标画幅" />
+          </div>
+
+          <div v-if="ep.bodyExample" class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-semibold uppercase text-slate-400">请求示例</h3>
+              <Button variant="ghost" size="sm" @click="copyText(ep.bodyExample, ep.path + 'body')">
+                <component :is="copied === ep.path + 'body' ? Check : Copy" class="mr-1 h-3 w-3" /> 复制
+              </Button>
             </div>
-            <CardTitle class="text-base mt-2">{{ ep.title }}</CardTitle>
-            <CardDescription>{{ ep.desc }}</CardDescription>
-          </CardHeader>
+            <pre class="overflow-x-auto rounded-xl border border-white/10 bg-[#09090d] p-4 text-xs leading-relaxed"><code>{{ ep.bodyExample }}</code></pre>
+          </div>
 
-          <CardContent class="space-y-4 pt-0">
-            <!-- Request Params -->
-            <div v-if="ep.params?.length">
-              <h4 class="text-xs font-semibold uppercase text-muted-foreground mb-2">请求参数 (form-data / body)</h4>
-              <div class="overflow-x-auto rounded-lg border border-white/5">
-                <table class="w-full text-sm">
-                  <thead class="bg-white/5">
-                    <tr>
-                      <th class="text-left px-3 py-2 font-medium">参数</th>
-                      <th class="text-left px-3 py-2 font-medium">类型</th>
-                      <th class="text-left px-3 py-2 font-medium">必填</th>
-                      <th class="text-left px-3 py-2 font-medium">说明</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="p in ep.params" :key="p.name" class="border-t border-white/5">
-                      <td class="px-3 py-2 font-mono text-xs">{{ p.name }}</td>
-                      <td class="px-3 py-2 text-xs">{{ p.type }}</td>
-                      <td class="px-3 py-2 text-xs">{{ p.required }}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">{{ p.desc }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+          <div class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">返回参数</h3>
+            <FieldTable :fields="ep.response" location="Response" />
+          </div>
+
+          <div v-if="ep.response.some((field) => field.name === 'links')" class="space-y-2">
+            <h3 class="text-xs font-semibold uppercase text-slate-400">links 字段说明</h3>
+            <FieldTable :fields="linkFields" location="Response" />
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-semibold uppercase text-slate-400">返回示例</h3>
+              <Button variant="ghost" size="sm" @click="copyText(ep.responseExample, ep.path + 'response')">
+                <component :is="copied === ep.path + 'response' ? Check : Copy" class="mr-1 h-3 w-3" /> 复制
+              </Button>
             </div>
+            <pre class="overflow-x-auto rounded-xl border border-white/10 bg-[#09090d] p-4 text-xs leading-relaxed"><code>{{ ep.responseExample }}</code></pre>
+          </div>
 
-            <!-- Query Params -->
-            <div v-if="ep.query?.length">
-              <h4 class="text-xs font-semibold uppercase text-muted-foreground mb-2">查询参数</h4>
-              <div class="overflow-x-auto rounded-lg border border-white/5">
-                <table class="w-full text-sm">
-                  <thead class="bg-white/5">
-                    <tr>
-                      <th class="text-left px-3 py-2 font-medium">参数</th>
-                      <th class="text-left px-3 py-2 font-medium">默认</th>
-                      <th class="text-left px-3 py-2 font-medium">说明</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr v-for="q in ep.query" :key="q.name" class="border-t border-white/5">
-                      <td class="px-3 py-2 font-mono text-xs">{{ q.name }}</td>
-                      <td class="px-3 py-2 text-xs">{{ q.default || '-' }}</td>
-                      <td class="px-3 py-2 text-xs text-muted-foreground">{{ q.desc }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+          <div class="rounded-xl border border-white/10 bg-[#09090d] p-3">
+            <div class="mb-2 flex items-center justify-between">
+              <span class="flex items-center gap-1.5 text-xs font-semibold text-slate-400">
+                <Terminal class="h-3.5 w-3.5" /> cURL
+              </span>
+              <Button variant="ghost" size="sm" @click="copyText(curlExample(ep), ep.path + 'curl')">
+                <component :is="copied === ep.path + 'curl' ? Check : Copy" class="mr-1 h-3 w-3" /> 复制
+              </Button>
             </div>
-
-            <!-- Request Body -->
-            <div v-if="ep.body">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="text-xs font-semibold uppercase text-muted-foreground">请求体</h4>
-                <Button variant="ghost" size="sm" class="h-7 text-xs" @click="copyCode(ep.body)">
-                  <Copy class="mr-1 h-3 w-3" /> 复制
-                </Button>
-              </div>
-              <pre class="bg-[#0a0a0f] text-slate-200 p-3 rounded-lg text-xs overflow-x-auto leading-relaxed"><code>{{ ep.body }}</code></pre>
-            </div>
-
-            <!-- Response -->
-            <div v-if="ep.response">
-              <div class="flex items-center justify-between mb-2">
-                <h4 class="text-xs font-semibold uppercase text-muted-foreground">响应示例</h4>
-                <Button variant="ghost" size="sm" class="h-7 text-xs" @click="copyCode(ep.response)">
-                  <Copy class="mr-1 h-3 w-3" /> 复制
-                </Button>
-              </div>
-              <pre class="bg-[#0a0a0f] text-slate-200 p-3 rounded-lg text-xs overflow-x-auto leading-relaxed"><code>{{ ep.response }}</code></pre>
-            </div>
-
-            <!-- Curl -->
-            <div class="rounded-lg border border-white/5 bg-white/5 p-3">
-              <div class="flex items-center justify-between mb-1.5">
-                <div class="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-                  <Terminal class="h-3.5 w-3.5" />
-                  cURL 示例
-                </div>
-                <Button variant="ghost" size="sm" class="h-7 text-xs" @click="copyCurl(ep)">
-                  <component :is="copied === (ep.path + ep.method) ? Check : Copy" class="mr-1 h-3 w-3" />
-                  {{ copied === (ep.path + ep.method) ? '已复制' : '复制' }}
-                </Button>
-              </div>
-              <pre class="text-xs text-muted-foreground overflow-x-auto leading-relaxed font-mono">{{ curlExample(ep) }}</pre>
-            </div>
-          </CardContent>
-        </Card>
-      </TabsContent>
-    </Tabs>
-
-    <!-- Common Response Format -->
-    <Card class="mt-6 border-white/5">
-      <CardHeader>
-        <CardTitle class="text-base">通用响应格式</CardTitle>
-        <CardDescription>所有接口均遵循以下响应结构</CardDescription>
-      </CardHeader>
-      <CardContent class="space-y-3">
-        <div class="rounded-lg border border-white/5 bg-white/5 p-3">
-          <p class="text-xs font-mono text-muted-foreground mb-1">成功响应（HTTP 200）</p>
-          <pre class="bg-[#0a0a0f] text-slate-200 p-3 rounded-lg text-xs overflow-x-auto leading-relaxed"><code>{
-  "status": true,
-  "message": "success",
-  "data": { ... }
-}</code></pre>
-        </div>
-        <div class="rounded-lg border border-white/5 bg-white/5 p-3">
-          <p class="text-xs font-mono text-muted-foreground mb-1">错误响应（HTTP 4xx/5xx）</p>
-          <pre class="bg-[#0a0a0f] text-slate-200 p-3 rounded-lg text-xs overflow-x-auto leading-relaxed"><code>{
-  "status": false,
-  "message": "错误描述"
-}</code></pre>
-        </div>
-      </CardContent>
-    </Card>
+            <pre class="overflow-x-auto text-xs leading-relaxed text-slate-400">{{ curlExample(ep) }}</pre>
+          </div>
+        </CardContent>
+      </Card>
+    </section>
   </div>
 </template>

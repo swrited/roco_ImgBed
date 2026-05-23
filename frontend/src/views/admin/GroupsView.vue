@@ -14,19 +14,9 @@ import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'vue-sonner'
-import { Plus, Pencil, Trash2, RotateCcw, Settings } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, RotateCcw, Settings, CheckCircle2, XCircle } from 'lucide-vue-next'
 import type { Group, Strategy } from '@/types'
-
-// --------------- Helpers ---------------
-function formatSize(kb: number | string): string {
-  const n = Number(kb)
-  if (!n || n <= 0) return '不限制'
-  if (n >= 1048576) return (n / 1048576).toFixed(2) + ' GB'
-  if (n >= 1024) return (n / 1024).toFixed(2) + ' MB'
-  return n.toFixed(0) + ' KB'
-}
 
 // --------------- State ---------------
 const groups = ref<Group[]>([])
@@ -38,12 +28,16 @@ const showDialog = ref(false)
 const editingGroup = ref<Group | null>(null)
 const groupName = ref('')
 const groupIsDefault = ref(false)
+const groupIsGuest = ref(false)
 
 // Rules/strategy association dialog
 const showRulesDialog = ref(false)
 const rulesGroup = ref<Group | null>(null)
 const selectedStrategyIds = ref<number[]>([])
 const rulesCapacity = ref('')
+const rulesImageScan = ref(false)
+const rulesOriginalProtection = ref(false)
+const rulesWatermark = ref(false)
 const savingRules = ref(false)
 
 // Confirm dialog state
@@ -74,6 +68,7 @@ function openCreate() {
   editingGroup.value = null
   groupName.value = ''
   groupIsDefault.value = false
+  groupIsGuest.value = false
   showDialog.value = true
 }
 
@@ -81,7 +76,21 @@ function openEdit(group: Group) {
   editingGroup.value = group
   groupName.value = group.name
   groupIsDefault.value = group.is_default || false
+  groupIsGuest.value = group.is_guest || false
   showDialog.value = true
+}
+
+function boolConfig(group: Group, key: string): boolean {
+  const value = group.configs?.[key]
+  return value === true || value === 1 || value === '1'
+}
+
+function statusText(enabled: boolean): string {
+  return enabled ? '开启' : '关闭'
+}
+
+function countStrategies(group: Group): number {
+  return group.strategies_count ?? group.strategies?.length ?? 0
 }
 
 async function handleSubmit() {
@@ -95,10 +104,15 @@ async function handleSubmit() {
       await adminApi.updateGroup(editingGroup.value.id, {
         name,
         is_default: groupIsDefault.value,
+        is_guest: groupIsGuest.value,
       })
       toast.success('更新成功')
     } else {
-      await adminApi.createGroup({ name })
+      await adminApi.createGroup({
+        name,
+        is_default: groupIsDefault.value,
+        is_guest: groupIsGuest.value,
+      })
       toast.success('创建成功')
     }
     showDialog.value = false
@@ -109,6 +123,11 @@ async function handleSubmit() {
 }
 
 function confirmDeleteGroup(id: number) {
+  const group = groups.value.find(g => g.id === id)
+  if (group?.is_default || group?.is_guest) {
+    toast.error('默认组和游客组无法删除')
+    return
+  }
   deleteTargetId.value = id
   showDeleteConfirm.value = true
 }
@@ -140,6 +159,9 @@ function openRules(g: Group) {
   const existing = g.strategies || []
   selectedStrategyIds.value = existing.map((s: any) => s.id)
   rulesCapacity.value = g.configs?.capacity ? String(g.configs.capacity) : ''
+  rulesImageScan.value = boolConfig(g, 'is_enable_scan')
+  rulesOriginalProtection.value = boolConfig(g, 'is_enable_original_protection')
+  rulesWatermark.value = boolConfig(g, 'is_enable_watermark')
   showRulesDialog.value = true
 }
 
@@ -156,10 +178,15 @@ async function saveRules() {
   if (!rulesGroup.value) return
   savingRules.value = true
   try {
-    const configs: Record<string, any> = {}
+    const configs: Record<string, any> = { ...(rulesGroup.value.configs || {}) }
     if (rulesCapacity.value) {
       configs.capacity = Number(rulesCapacity.value)
+    } else {
+      delete configs.capacity
     }
+    configs.is_enable_scan = rulesImageScan.value
+    configs.is_enable_original_protection = rulesOriginalProtection.value
+    configs.is_enable_watermark = rulesWatermark.value
     await adminApi.updateGroup(rulesGroup.value.id, {
       configs,
       strategy_ids: selectedStrategyIds.value,
@@ -200,15 +227,19 @@ onMounted(() => {
         <TableRow>
           <TableHead>ID</TableHead>
           <TableHead>名称</TableHead>
-          <TableHead>默认</TableHead>
-          <TableHead>关联策略</TableHead>
-          <TableHead>容量限制</TableHead>
+          <TableHead>是否默认</TableHead>
+          <TableHead>是否为游客组</TableHead>
+          <TableHead>图片审核</TableHead>
+          <TableHead>原图保护</TableHead>
+          <TableHead>水印</TableHead>
+          <TableHead>用户数量</TableHead>
+          <TableHead>策略数量</TableHead>
           <TableHead>操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-for="i in 6" :key="'skel-' + i">
-          <TableCell colspan="6">
+          <TableCell colspan="10">
             <div class="h-10 bg-muted animate-pulse rounded" />
           </TableCell>
         </TableRow>
@@ -227,9 +258,13 @@ onMounted(() => {
         <TableRow>
           <TableHead>ID</TableHead>
           <TableHead>名称</TableHead>
-          <TableHead>默认</TableHead>
-          <TableHead>关联策略</TableHead>
-          <TableHead>容量限制</TableHead>
+          <TableHead>是否默认</TableHead>
+          <TableHead>是否为游客组</TableHead>
+          <TableHead>图片审核</TableHead>
+          <TableHead>原图保护</TableHead>
+          <TableHead>水印</TableHead>
+          <TableHead>用户数量</TableHead>
+          <TableHead>策略数量</TableHead>
           <TableHead>操作</TableHead>
         </TableRow>
       </TableHeader>
@@ -238,24 +273,40 @@ onMounted(() => {
           <TableCell>{{ g.id }}</TableCell>
           <TableCell class="font-medium">{{ g.name }}</TableCell>
           <TableCell>
-            <Badge :variant="g.is_default ? 'default' : 'secondary'">
-              {{ g.is_default ? '默认' : '否' }}
+            <Badge :variant="g.is_default ? 'default' : 'secondary'" class="gap-1">
+              <component :is="g.is_default ? CheckCircle2 : XCircle" class="h-3.5 w-3.5" />
+              {{ g.is_default ? '是' : '否' }}
             </Badge>
           </TableCell>
           <TableCell>
-            <div class="flex flex-wrap gap-1">
-              <Badge v-if="!g.strategies || g.strategies.length === 0" variant="outline">
-                未限制
-              </Badge>
-              <Badge v-for="s in g.strategies" :key="s.id" variant="outline" class="text-xs">
-                {{ s.name }}
-              </Badge>
-            </div>
+            <Badge :variant="g.is_guest ? 'default' : 'secondary'" class="gap-1">
+              <component :is="g.is_guest ? CheckCircle2 : XCircle" class="h-3.5 w-3.5" />
+              {{ g.is_guest ? '是' : '否' }}
+            </Badge>
           </TableCell>
           <TableCell>
-            <span class="text-sm text-muted-foreground">
-              {{ g.configs?.capacity ? formatSize(Number(g.configs.capacity)) : '不限制' }}
-            </span>
+            <Badge :variant="boolConfig(g, 'is_enable_scan') ? 'default' : 'secondary'" class="gap-1">
+              <component :is="boolConfig(g, 'is_enable_scan') ? CheckCircle2 : XCircle" class="h-3.5 w-3.5" />
+              {{ statusText(boolConfig(g, 'is_enable_scan')) }}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge :variant="boolConfig(g, 'is_enable_original_protection') ? 'default' : 'secondary'" class="gap-1">
+              <component :is="boolConfig(g, 'is_enable_original_protection') ? CheckCircle2 : XCircle" class="h-3.5 w-3.5" />
+              {{ statusText(boolConfig(g, 'is_enable_original_protection')) }}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            <Badge :variant="boolConfig(g, 'is_enable_watermark') ? 'default' : 'secondary'" class="gap-1">
+              <component :is="boolConfig(g, 'is_enable_watermark') ? CheckCircle2 : XCircle" class="h-3.5 w-3.5" />
+              {{ statusText(boolConfig(g, 'is_enable_watermark')) }}
+            </Badge>
+          </TableCell>
+          <TableCell>
+            {{ g.users_count ?? 0 }}
+          </TableCell>
+          <TableCell>
+            {{ countStrategies(g) }}
           </TableCell>
           <TableCell>
             <div class="flex gap-2">
@@ -265,7 +316,7 @@ onMounted(() => {
               <Button variant="secondary" size="sm" @click="openRules(g)">
                 <Settings class="mr-1 h-3 w-3" /> 规则
               </Button>
-              <Button variant="destructive" size="sm" @click="confirmDeleteGroup(g.id)">
+              <Button v-if="!g.is_default && !g.is_guest" variant="destructive" size="sm" @click="confirmDeleteGroup(g.id)">
                 <Trash2 class="mr-1 h-3 w-3" /> 删除
               </Button>
             </div>
@@ -280,7 +331,7 @@ onMounted(() => {
         <DialogHeader>
           <DialogTitle>{{ editingGroup ? '编辑角色组' : '新建角色组' }}</DialogTitle>
           <DialogDescription>
-            {{ editingGroup ? '修改角色组的名称和默认状态' : '创建一个新的角色组' }}
+            {{ editingGroup ? '修改角色组名称、默认组和游客组状态' : '创建一个新的角色组' }}
           </DialogDescription>
         </DialogHeader>
         <div class="space-y-4">
@@ -290,7 +341,11 @@ onMounted(() => {
           </div>
           <div class="flex items-center justify-between">
             <Label>设为默认</Label>
-            <Switch v-model:checked="groupIsDefault" />
+            <Switch v-model="groupIsDefault" />
+          </div>
+          <div class="flex items-center justify-between">
+            <Label>设为游客组</Label>
+            <Switch v-model="groupIsGuest" />
           </div>
         </div>
         <DialogFooter>
@@ -305,13 +360,40 @@ onMounted(() => {
       <DialogContent class="max-w-md max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>角色组规则 · {{ rulesGroup?.name }}</DialogTitle>
-          <DialogDescription>配置该角色组的可用策略和容量限制</DialogDescription>
+          <DialogDescription>配置该角色组的权限开关、可用策略和容量限制</DialogDescription>
         </DialogHeader>
         <div class="space-y-6">
           <!-- Capacity -->
           <div class="space-y-2">
             <Label>存储容量限制 (KB，0 = 不限制)</Label>
             <Input v-model="rulesCapacity" type="number" placeholder="0" />
+          </div>
+
+          <div class="space-y-3">
+            <Label>权限开关</Label>
+            <div class="space-y-3 rounded-lg border p-3">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium">图片审核</p>
+                  <p class="text-xs text-muted-foreground">开启后上传图片需要经过审核流程</p>
+                </div>
+                <Switch v-model="rulesImageScan" />
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium">原图保护</p>
+                  <p class="text-xs text-muted-foreground">开启后图片不直接返回原图直链</p>
+                </div>
+                <Switch v-model="rulesOriginalProtection" />
+              </div>
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <p class="text-sm font-medium">水印</p>
+                  <p class="text-xs text-muted-foreground">开启后该组用户上传图片应用水印配置</p>
+                </div>
+                <Switch v-model="rulesWatermark" />
+              </div>
+            </div>
           </div>
 
           <!-- Strategy association -->

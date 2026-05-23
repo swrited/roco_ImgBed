@@ -17,18 +17,18 @@ type APIResponse struct {
 }
 
 type PaginatedData struct {
-	CurrentPage int64       `json:"current_page"`
-	Data        interface{} `json:"data"`
-	FirstPageURL string     `json:"first_page_url"`
-	From        int64       `json:"from"`
-	LastPage    int64       `json:"last_page"`
-	LastPageURL string      `json:"last_page_url"`
-	NextPageURL string      `json:"next_page_url"`
-	Path        string      `json:"path"`
-	PerPage     int64       `json:"per_page"`
-	PrevPageURL string      `json:"prev_page_url"`
-	To          int64       `json:"to"`
-	Total       int64       `json:"total"`
+	CurrentPage  int64       `json:"current_page"`
+	Data         interface{} `json:"data"`
+	FirstPageURL string      `json:"first_page_url"`
+	From         int64       `json:"from"`
+	LastPage     int64       `json:"last_page"`
+	LastPageURL  string      `json:"last_page_url"`
+	NextPageURL  string      `json:"next_page_url"`
+	Path         string      `json:"path"`
+	PerPage      int64       `json:"per_page"`
+	PrevPageURL  string      `json:"prev_page_url"`
+	To           int64       `json:"to"`
+	Total        int64       `json:"total"`
 }
 
 // JSON is a custom type for JSON columns
@@ -103,37 +103,37 @@ type BaseModel struct {
 
 type User struct {
 	BaseModel
-	GroupID         *uint    `gorm:"column:group_id;default:null" json:"group_id"`
-	Name            string   `gorm:"column:name;type:varchar(255)" json:"name"`
-	Email           string   `gorm:"column:email;type:varchar(255);uniqueIndex" json:"email"`
-	Password        string   `gorm:"column:password;type:varchar(255)" json:"-"`
-	RememberToken   string   `gorm:"column:remember_token;type:varchar(100)" json:"-"`
-	IsAdminer       bool     `gorm:"column:is_adminer;default:false" json:"is_adminer"`
-	Capacity        float64  `gorm:"column:capacity;type:decimal(20,2);default:0" json:"capacity"`
-	URL             string   `gorm:"column:url;type:varchar(255);default:''" json:"url"`
-	Configs         JSONMap  `gorm:"column:configs;type:json;default:'{}'" json:"-"`
-	ImageNum        uint64   `gorm:"column:image_num;default:0" json:"image_num"`
-	AlbumNum        uint64   `gorm:"column:album_num;default:0" json:"album_num"`
-	RegisteredIP    string   `gorm:"column:registered_ip;type:varchar(45);default:''" json:"registered_ip"`
-	Status          uint     `gorm:"column:status;default:1" json:"status"`
+	GroupID         *uint      `gorm:"column:group_id;default:null" json:"group_id"`
+	Name            string     `gorm:"column:name;type:varchar(255)" json:"name"`
+	Email           string     `gorm:"column:email;type:varchar(255);uniqueIndex" json:"email"`
+	Password        string     `gorm:"column:password;type:varchar(255)" json:"-"`
+	RememberToken   string     `gorm:"column:remember_token;type:varchar(100)" json:"-"`
+	IsAdminer       bool       `gorm:"column:is_adminer;default:false" json:"is_adminer"`
+	Capacity        float64    `gorm:"column:capacity;type:decimal(20,2);default:0" json:"capacity"`
+	URL             string     `gorm:"column:url;type:varchar(255);default:''" json:"url"`
+	Configs         JSONMap    `gorm:"column:configs;type:json;default:'{}'" json:"-"`
+	ImageNum        uint64     `gorm:"column:image_num;default:0" json:"image_num"`
+	AlbumNum        uint64     `gorm:"column:album_num;default:0" json:"album_num"`
+	RegisteredIP    string     `gorm:"column:registered_ip;type:varchar(45);default:''" json:"registered_ip"`
+	Status          uint       `gorm:"column:status;default:1" json:"status"`
 	EmailVerifiedAt *time.Time `gorm:"column:email_verified_at" json:"email_verified_at"`
-	Group           *Group    `gorm:"foreignKey:GroupID" json:"group,omitempty"`
-	Albums          []Album   `gorm:"foreignKey:UserID" json:"-"`
-	Images          []Image   `gorm:"foreignKey:UserID" json:"-"`
+	Group           *Group     `gorm:"foreignKey:GroupID" json:"group,omitempty"`
+	Albums          []Album    `gorm:"foreignKey:UserID" json:"-"`
+	Images          []Image    `gorm:"foreignKey:UserID" json:"-"`
 }
 
 func (User) TableName() string { return "users" }
 
 type UserProfile struct {
-	ID          uint   `json:"id"`
-	Name        string `json:"name"`
-	Email       string `json:"email"`
-	IsAdminer   bool   `json:"is_adminer"`
-	Capacity    float64 `json:"capacity"`
-	ImageNum    uint64 `json:"image_num"`
-	AlbumNum    uint64 `json:"album_num"`
-	URL         string `json:"url"`
-	Avatar      string `json:"avatar"`
+	ID        uint    `json:"id"`
+	Name      string  `json:"name"`
+	Email     string  `json:"email"`
+	IsAdminer bool    `json:"is_adminer"`
+	Capacity  float64 `json:"capacity"`
+	ImageNum  uint64  `json:"image_num"`
+	AlbumNum  uint64  `json:"album_num"`
+	URL       string  `json:"url"`
+	Avatar    string  `json:"avatar"`
 }
 
 func (u *User) ToProfile() UserProfile {
@@ -154,10 +154,10 @@ func (u *User) ToProfile() UserProfile {
 
 type Group struct {
 	BaseModel
-	Name      string  `gorm:"column:name;type:varchar(64)" json:"name"`
-	IsDefault bool    `gorm:"column:is_default;default:false" json:"is_default"`
-	IsGuest   bool    `gorm:"column:is_guest;default:false" json:"is_guest"`
-	Configs   JSONMap `gorm:"column:configs;type:json;default:'{}'" json:"configs"`
+	Name       string     `gorm:"column:name;type:varchar(64)" json:"name"`
+	IsDefault  bool       `gorm:"column:is_default;default:false" json:"is_default"`
+	IsGuest    bool       `gorm:"column:is_guest;default:false" json:"is_guest"`
+	Configs    JSONMap    `gorm:"column:configs;type:json;default:'{}'" json:"configs"`
 	Strategies []Strategy `gorm:"many2many:group_strategy;" json:"strategies,omitempty"`
 }
 
@@ -229,7 +229,7 @@ type Image struct {
 	SHA1        string  `gorm:"column:sha1;type:varchar(128)" json:"sha1"`
 	Width       uint    `gorm:"column:width;default:0" json:"width"`
 	Height      uint    `gorm:"column:height;default:0" json:"height"`
-	Permission  uint    `gorm:"column:permission;default:1" json:"permission"`
+	Permission  uint    `gorm:"column:permission;default:0" json:"permission"`
 	IsUnhealthy bool    `gorm:"column:is_unhealthy;default:false" json:"is_unhealthy"`
 	UploadedIP  string  `gorm:"column:uploaded_ip;type:varchar(45);default:''" json:"uploaded_ip"`
 
@@ -252,12 +252,12 @@ func (img *Image) Pathname() string {
 }
 
 type ImageLinks struct {
-	URL             string `json:"url"`
-	HTML            string `json:"html"`
-	BBCode          string `json:"bbcode"`
-	Markdown        string `json:"markdown"`
+	URL              string `json:"url"`
+	HTML             string `json:"html"`
+	BBCode           string `json:"bbcode"`
+	Markdown         string `json:"markdown"`
 	MarkdownWithLink string `json:"markdown_with_link"`
-	ThumbnailURL    string `json:"thumbnail_url"`
+	ThumbnailURL     string `json:"thumbnail_url"`
 }
 
 // -------- Config (configs table, key-value) --------
@@ -283,15 +283,48 @@ func (PasswordReset) TableName() string { return "password_resets" }
 
 type ApiKey struct {
 	BaseModel
-	UserID    uint   `gorm:"column:user_id;index" json:"user_id"`
-	Name      string `gorm:"column:name;type:varchar(64)" json:"name"`
-	Key       string `gorm:"column:key;type:varchar(64);uniqueIndex" json:"key"`
+	UserID    uint       `gorm:"column:user_id;index" json:"user_id"`
+	Name      string     `gorm:"column:name;type:varchar(64)" json:"name"`
+	Key       string     `gorm:"column:key;type:varchar(64);uniqueIndex" json:"key"`
 	LastUsed  *time.Time `gorm:"column:last_used" json:"last_used"`
 	RevokedAt *time.Time `gorm:"column:revoked_at" json:"revoked_at,omitempty"`
-	User      *User  `gorm:"foreignKey:UserID" json:"-"`
+	User      *User      `gorm:"foreignKey:UserID" json:"-"`
 }
 
 func (ApiKey) TableName() string { return "api_keys" }
+
+// -------- API Usage Logs --------
+
+type ApiUsageLog struct {
+	BaseModel
+	UserID    *uint   `gorm:"column:user_id;index" json:"user_id"`
+	ApiKeyID  *uint   `gorm:"column:api_key_id;index" json:"api_key_id"`
+	Method    string  `gorm:"column:method;type:varchar(16);index" json:"method"`
+	Path      string  `gorm:"column:path;type:varchar(255);index" json:"path"`
+	Status    int     `gorm:"column:status;index" json:"status"`
+	LatencyMS int64   `gorm:"column:latency_ms" json:"latency_ms"`
+	IP        string  `gorm:"column:ip;type:varchar(45)" json:"ip"`
+	UserAgent string  `gorm:"column:user_agent;type:varchar(255)" json:"user_agent"`
+	AuthType  string  `gorm:"column:auth_type;type:varchar(16);index" json:"auth_type"`
+	User      *User   `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	ApiKey    *ApiKey `gorm:"foreignKey:ApiKeyID" json:"api_key,omitempty"`
+}
+
+func (ApiUsageLog) TableName() string { return "api_usage_logs" }
+
+// -------- AI Image Usage Logs --------
+
+type AIImageUsageLog struct {
+	BaseModel
+	UserID uint   `gorm:"column:user_id;index" json:"user_id"`
+	Count  int    `gorm:"column:count;default:1" json:"count"`
+	Prompt string `gorm:"column:prompt;type:varchar(255)" json:"prompt"`
+	Ratio  string `gorm:"column:ratio;type:varchar(16)" json:"ratio"`
+	IP     string `gorm:"column:ip;type:varchar(45)" json:"ip"`
+	User   *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (AIImageUsageLog) TableName() string { return "ai_image_usage_logs" }
 
 // -------- Group-Strategy Pivot --------
 

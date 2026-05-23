@@ -1,44 +1,74 @@
 <script setup lang="ts">
-import type { SwitchRootEmits, SwitchRootProps } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'
-import { reactiveOmit } from '@vueuse/core'
-import {
-  SwitchRoot,
-  SwitchThumb,
-  useForwardPropsEmits,
-} from 'reka-ui'
+import { computed, useAttrs } from 'vue'
 import { cn } from '@/lib/utils'
 
-const props = withDefaults(defineProps<SwitchRootProps & {
+defineOptions({
+  inheritAttrs: false,
+})
+
+const props = withDefaults(defineProps<{
+  modelValue?: boolean | number | string
+  checked?: boolean | number | string
+  disabled?: boolean
   class?: HTMLAttributes['class']
   size?: 'sm' | 'default'
 }>(), {
+  modelValue: undefined,
+  checked: undefined,
+  disabled: false,
   size: 'default',
 })
 
-const emits = defineEmits<SwitchRootEmits>()
+const emits = defineEmits<{
+  'update:modelValue': [value: boolean]
+  'update:checked': [value: boolean]
+}>()
 
-const delegatedProps = reactiveOmit(props, 'class', 'size')
+const attrs = useAttrs()
 
-const forwarded = useForwardPropsEmits(delegatedProps, emits)
+const isChecked = computed(() => {
+  const value = props.modelValue ?? props.checked
+  return value === true || value === 1 || value === '1' || value === 'true'
+})
+
+function toggle() {
+  if (props.disabled) return
+  const next = !isChecked.value
+  emits('update:modelValue', next)
+  emits('update:checked', next)
+}
 </script>
 
 <template>
-  <SwitchRoot
-    v-slot="slotProps"
-    data-slot="switch"
+  <button
+    v-bind="attrs"
+    type="button"
+    role="switch"
+    :aria-checked="isChecked"
+    :disabled="disabled"
+    :data-state="isChecked ? 'checked' : 'unchecked'"
     :data-size="size"
-    v-bind="forwarded"
     :class="cn(
-      'data-checked:bg-primary data-unchecked:bg-input focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:aria-invalid:border-destructive/50 dark:data-unchecked:bg-input/80 shrink-0 rounded-full border border-transparent focus-visible:ring-3 aria-invalid:ring-3 data-[size=default]:h-[18.4px] data-[size=default]:w-[32px] data-[size=sm]:h-[14px] data-[size=sm]:w-[24px] peer group/switch relative inline-flex items-center transition-all outline-none after:absolute after:-inset-x-3 after:-inset-y-2 data-disabled:cursor-not-allowed data-disabled:opacity-50',
+      'relative inline-flex shrink-0 items-center rounded-full border transition-all outline-none',
+      'focus-visible:ring-2 focus-visible:ring-purple-500/45 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+      'disabled:cursor-not-allowed disabled:opacity-50',
+      size === 'sm' ? 'h-[14px] w-[24px]' : 'h-5 w-9',
+      isChecked
+        ? 'border-purple-500 bg-purple-500'
+        : 'border-white/10 bg-slate-700',
       props.class,
     )"
+    @click="toggle"
   >
-    <SwitchThumb
-      data-slot="switch-thumb"
-      class="bg-background dark:data-unchecked:bg-foreground dark:data-checked:bg-primary-foreground rounded-full group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 group-data-[size=default]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=sm]/switch:data-checked:translate-x-[calc(100%-2px)] group-data-[size=default]/switch:data-unchecked:translate-x-0 group-data-[size=sm]/switch:data-unchecked:translate-x-0 pointer-events-none block ring-0 transition-transform"
-    >
-      <slot name="thumb" v-bind="slotProps" />
-    </SwitchThumb>
-  </SwitchRoot>
+    <span
+      :class="cn(
+        'pointer-events-none block rounded-full bg-white shadow-sm transition-transform',
+        size === 'sm' ? 'h-3 w-3' : 'h-4 w-4',
+        isChecked
+          ? size === 'sm' ? 'translate-x-[10px]' : 'translate-x-[18px]'
+          : 'translate-x-0.5',
+      )"
+    />
+  </button>
 </template>

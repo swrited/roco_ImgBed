@@ -6,7 +6,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'vue-sonner'
-import { Image } from 'lucide-vue-next'
 
 const email = ref('')
 const loading = ref(false)
@@ -30,9 +29,7 @@ async function handleSubmit() {
   <div class="flex min-h-screen items-center justify-center px-4 py-12">
     <Card class="w-full max-w-md">
       <CardHeader class="text-center">
-        <div class="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-          <Image class="h-6 w-6 text-primary" />
-        </div>
+        <img src="/roco-logo.svg" alt="洛克图床" class="mx-auto mb-2 h-12 w-12 rounded-full object-contain" />
         <CardTitle class="text-2xl">忘记密码</CardTitle>
         <CardDescription>{{ sent ? '请检查你的邮箱' : '输入邮箱接收重置链接' }}</CardDescription>
       </CardHeader>

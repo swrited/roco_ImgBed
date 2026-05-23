@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -52,6 +53,7 @@ func AuthRequired(cfg *config.Config) gin.HandlerFunc {
 
 		c.Set("user_id", userID)
 		c.Set("is_adminer", isAdmin)
+		c.Set("auth_type", "bearer")
 		c.Next()
 	}
 }
@@ -93,6 +95,7 @@ func OptionalAuth(cfg *config.Config) gin.HandlerFunc {
 
 		c.Set("user_id", userID)
 		c.Set("is_adminer", isAdmin)
+		c.Set("auth_type", "bearer")
 		c.Next()
 	}
 }
@@ -119,6 +122,69 @@ func CORSMiddleware() gin.HandlerFunc {
 		}
 		c.Next()
 	}
+}
+
+func APIUsageLogger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+
+		path := c.FullPath()
+		if path == "" {
+			path = c.Request.URL.Path
+		}
+		if !shouldLogAPIUsage(path) {
+			return
+		}
+
+		var userID *uint
+		if id := c.GetUint("user_id"); id > 0 {
+			userID = &id
+		}
+
+		var apiKeyID *uint
+		if id := c.GetUint("api_key_id"); id > 0 {
+			apiKeyID = &id
+		}
+
+		authType := ""
+		if v, ok := c.Get("auth_type"); ok {
+			authType, _ = v.(string)
+		}
+		if authType == "" {
+			authType = "anonymous"
+		}
+		if authType != "api_key" {
+			return
+		}
+
+		userAgent := c.GetHeader("User-Agent")
+		if len(userAgent) > 255 {
+			userAgent = userAgent[:255]
+		}
+
+		config.DB.Create(&model.ApiUsageLog{
+			UserID:    userID,
+			ApiKeyID:  apiKeyID,
+			Method:    c.Request.Method,
+			Path:      path,
+			Status:    c.Writer.Status(),
+			LatencyMS: time.Since(start).Milliseconds(),
+			IP:        c.ClientIP(),
+			UserAgent: userAgent,
+			AuthType:  authType,
+		})
+	}
+}
+
+func shouldLogAPIUsage(path string) bool {
+	if path == "" {
+		return false
+	}
+	if strings.HasPrefix(path, "/api/v1/api-usage") || strings.HasPrefix(path, "/api/v1/admin/api-usage") {
+		return false
+	}
+	return strings.HasPrefix(path, "/api/v1/") || strings.HasPrefix(path, "/images/")
 }
 
 // ApiKeyAuth 支持通过 Header X-Api-Key 或 Query 参数 ?api_key=xxx 认证
@@ -154,12 +220,17 @@ func ApiKeyAuth() gin.HandlerFunc {
 			return
 		}
 
+		c.Set("user_id", key.UserID)
+		c.Set("is_adminer", user.IsAdminer)
+		c.Set("api_key_id", key.ID)
+		c.Set("auth_type", "api_key")
+		if !checkAPIKeyLimits(c, key.ID) {
+			return
+		}
+
 		// Update last_used
 		now := time.Now()
 		config.DB.Model(&key).Update("last_used", now)
-
-		c.Set("user_id", key.UserID)
-		c.Set("is_adminer", user.IsAdminer)
 		c.Next()
 	}
 }
@@ -183,6 +254,7 @@ func OptionalAuthOrApiKey(cfg *config.Config) gin.HandlerFunc {
 					if err := config.DB.First(&user, userID).Error; err == nil && user.Status != 0 {
 						c.Set("user_id", userID)
 						c.Set("is_adminer", isAdmin)
+						c.Set("auth_type", "bearer")
 					}
 				}
 			}
@@ -202,6 +274,11 @@ func OptionalAuthOrApiKey(cfg *config.Config) gin.HandlerFunc {
 					config.DB.Model(&key).Update("last_used", now)
 					c.Set("user_id", key.UserID)
 					c.Set("is_adminer", user.IsAdminer)
+					c.Set("api_key_id", key.ID)
+					c.Set("auth_type", "api_key")
+					if !checkAPIKeyLimits(c, key.ID) {
+						return
+					}
 				}
 			}
 		}
@@ -230,6 +307,7 @@ func AuthOrApiKey(cfg *config.Config) gin.HandlerFunc {
 					if err := config.DB.First(&user, userID).Error; err == nil && user.Status != 0 {
 						c.Set("user_id", userID)
 						c.Set("is_adminer", isAdmin)
+						c.Set("auth_type", "bearer")
 						c.Next()
 						return
 					}
@@ -267,11 +345,69 @@ func AuthOrApiKey(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 
-		now := time.Now()
-		config.DB.Model(&key).Update("last_used", now)
-
 		c.Set("user_id", key.UserID)
 		c.Set("is_adminer", user.IsAdminer)
+		c.Set("api_key_id", key.ID)
+		c.Set("auth_type", "api_key")
+		if !checkAPIKeyLimits(c, key.ID) {
+			return
+		}
+
+		now := time.Now()
+		config.DB.Model(&key).Update("last_used", now)
 		c.Next()
 	}
+}
+
+func checkAPIKeyLimits(c *gin.Context, apiKeyID uint) bool {
+	if apiKeyID == 0 {
+		return true
+	}
+	now := time.Now()
+
+	minuteLimit := systemConfigInt("api_key_minute_limit", 60)
+	if minuteLimit > 0 {
+		start := now.Add(-time.Minute)
+		if countAPIKeyUsage(apiKeyID, start) >= int64(minuteLimit) {
+			model.Fail(c, http.StatusTooManyRequests, "API Key 请求过于频繁，请稍后再试")
+			c.Abort()
+			return false
+		}
+	}
+
+	dailyLimit := systemConfigInt("api_key_daily_limit", 1000)
+	if dailyLimit > 0 {
+		start := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+		if countAPIKeyUsage(apiKeyID, start) >= int64(dailyLimit) {
+			model.Fail(c, http.StatusTooManyRequests, "今日 API Key 请求次数已用完")
+			c.Abort()
+			return false
+		}
+	}
+
+	return true
+}
+
+func countAPIKeyUsage(apiKeyID uint, since time.Time) int64 {
+	var count int64
+	config.DB.Model(&model.ApiUsageLog{}).
+		Where("auth_type = ? AND api_key_id = ? AND created_at >= ?", "api_key", apiKeyID, since).
+		Count(&count)
+	return count
+}
+
+func systemConfigInt(key string, fallback int) int {
+	var cfg model.SystemConfig
+	if err := config.DB.Where("name = ?", key).First(&cfg).Error; err != nil {
+		return fallback
+	}
+	value := strings.TrimSpace(cfg.Value)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }

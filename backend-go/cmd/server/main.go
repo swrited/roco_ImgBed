@@ -34,12 +34,15 @@ func autoMigrate(db *gorm.DB) {
 		&model.Image{},
 		&model.SystemConfig{},
 		&model.ApiKey{},
+		&model.ApiUsageLog{},
+		&model.AIImageUsageLog{},
 	)
 	if err != nil {
 		log.Fatalf("数据库迁移失败: %v", err)
 	}
 	log.Println("数据库迁移完成")
 	seedIfEmpty(db)
+	ensureDefaultConfigs(db)
 }
 
 func seedIfEmpty(db *gorm.DB) {
@@ -84,22 +87,44 @@ func seedIfEmpty(db *gorm.DB) {
 		db.Create(&adminUser)
 		log.Println("默认管理员已创建: admin@admin.com / 123456")
 
-		// Create default configs
-		configs := []model.SystemConfig{
-			{Name: "app_name", Value: "洛克图床"},
-			{Name: "app_version", Value: "V 2.1"},
-			{Name: "site_description", Value: ""},
-			{Name: "site_keywords", Value: ""},
-			{Name: "is_enable_registration", Value: "1"},
-			{Name: "is_enable_api", Value: "1"},
-			{Name: "is_enable_gallery", Value: "1"},
-			{Name: "is_allow_guest_upload", Value: "0"},
-			{Name: "is_user_need_verify", Value: "0"},
-			{Name: "user_initial_capacity", Value: "512000"},
-			{Name: "mail", Value: "{}"},
-		}
-		for _, c := range configs {
+		for _, c := range defaultSystemConfigs() {
 			db.Create(&c)
 		}
+	}
+}
+
+func ensureDefaultConfigs(db *gorm.DB) {
+	for _, item := range defaultSystemConfigs() {
+		var cfg model.SystemConfig
+		if err := db.Where("name = ?", item.Name).First(&cfg).Error; err != nil {
+			db.Create(&item)
+		}
+	}
+}
+
+func defaultSystemConfigs() []model.SystemConfig {
+	return []model.SystemConfig{
+		{Name: "app_name", Value: "洛克图床"},
+		{Name: "app_version", Value: "V 2.1"},
+		{Name: "site_description", Value: ""},
+		{Name: "site_keywords", Value: ""},
+		{Name: "is_enable_registration", Value: "1"},
+		{Name: "is_enable_api", Value: "1"},
+		{Name: "is_enable_gallery", Value: "1"},
+		{Name: "is_allow_guest_upload", Value: "0"},
+		{Name: "is_user_need_verify", Value: "0"},
+		{Name: "user_initial_capacity", Value: "512000"},
+		{Name: "upload_max_size", Value: "10240"},
+		{Name: "default_strategy_id", Value: ""},
+		{Name: "is_enable_ai_image", Value: "0"},
+		{Name: "minimax_api_key", Value: ""},
+		{Name: "minimax_api_endpoint", Value: "https://api.minimaxi.com/v1/image_generation"},
+		{Name: "minimax_model", Value: "image-01"},
+		{Name: "ai_image_max_count", Value: "4"},
+		{Name: "ai_image_rate_limit_seconds", Value: "30"},
+		{Name: "ai_image_daily_limit", Value: "10"},
+		{Name: "api_key_minute_limit", Value: "60"},
+		{Name: "api_key_daily_limit", Value: "1000"},
+		{Name: "mail", Value: "{}"},
 	}
 }

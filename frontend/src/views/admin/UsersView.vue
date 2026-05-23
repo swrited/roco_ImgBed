@@ -32,7 +32,7 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'vue-sonner'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
-import { Plus, Pencil, Trash2, Search, Users } from 'lucide-vue-next'
+import { Plus, Pencil, Trash2, Search, Users, HardDrive } from 'lucide-vue-next'
 import type { User } from '@/types'
 
 // 用户列表数据
@@ -64,6 +64,17 @@ function formatSize(kb: number): string {
   if (kb < 1024) return kb + ' KB'
   if (kb < 1024 * 1024) return (kb / 1024).toFixed(1) + ' MB'
   return (kb / (1024 * 1024)).toFixed(2) + ' GB'
+}
+
+function formatUsage(u: User): string {
+  const used = formatSize(u.used_capacity || 0)
+  if (!u.capacity || u.capacity <= 0) return `${used} / 无限制`
+  return `${used} / ${formatSize(u.capacity)}`
+}
+
+function remainingText(u: User): string {
+  if (!u.capacity || u.capacity <= 0) return '剩余无限制'
+  return `剩余 ${formatSize(u.remaining_capacity || 0)}`
 }
 
 // 加载用户列表
@@ -222,7 +233,7 @@ onMounted(() => loadUsers())
             <TableHead class="w-[60px]">ID</TableHead>
             <TableHead>用户名</TableHead>
             <TableHead>邮箱</TableHead>
-            <TableHead>容量</TableHead>
+            <TableHead>存储空间</TableHead>
             <TableHead>图片数</TableHead>
             <TableHead>角色</TableHead>
             <TableHead>注册时间</TableHead>
@@ -258,7 +269,27 @@ onMounted(() => loadUsers())
             <TableCell>{{ u.id }}</TableCell>
             <TableCell class="font-medium">{{ u.name }}</TableCell>
             <TableCell>{{ u.email }}</TableCell>
-            <TableCell>{{ formatSize(u.capacity) }}</TableCell>
+            <TableCell class="min-w-[190px]">
+              <div class="space-y-1.5">
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-medium">{{ formatUsage(u) }}</span>
+                  <Badge v-if="u.capacity && u.capacity > 0" variant="secondary">
+                    {{ u.capacity_percent || 0 }}%
+                  </Badge>
+                  <Badge v-else variant="outline">无限制</Badge>
+                </div>
+                <div v-if="u.capacity && u.capacity > 0" class="h-1.5 rounded-full bg-muted overflow-hidden">
+                  <div
+                    class="h-full rounded-full bg-primary transition-all"
+                    :style="{ width: `${Math.min(100, u.capacity_percent || 0)}%` }"
+                  />
+                </div>
+                <div class="flex items-center gap-1 text-xs text-muted-foreground">
+                  <HardDrive class="h-3.5 w-3.5" />
+                  {{ remainingText(u) }}
+                </div>
+              </div>
+            </TableCell>
             <TableCell>{{ u.image_num }}</TableCell>
             <TableCell>
               <Badge :variant="u.is_adminer ? 'default' : 'secondary'">
@@ -337,10 +368,13 @@ onMounted(() => loadUsers())
           <div class="space-y-2">
             <Label for="edit-capacity">容量 (KB，0 表示无限制)</Label>
             <Input id="edit-capacity" v-model.number="editCapacity" type="number" min="0" />
+            <p v-if="editingUser" class="text-xs text-muted-foreground">
+              当前已用 {{ formatSize(editingUser.used_capacity || 0) }}，{{ remainingText(editingUser) }}。
+            </p>
           </div>
           <div class="flex items-center gap-2">
             <Label for="edit-adminer">管理员</Label>
-            <Switch id="edit-adminer" v-model:checked="editAdminer" />
+            <Switch id="edit-adminer" v-model="editAdminer" />
           </div>
         </div>
         <DialogFooter>

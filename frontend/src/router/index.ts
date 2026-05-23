@@ -51,6 +51,12 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         {
+          path: 'ai-generate',
+          name: 'ai-generate',
+          component: () => import('@/views/AIGenerateView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
           path: 'images',
           name: 'images',
           component: () => import('@/views/ImagesView.vue'),
@@ -79,9 +85,20 @@ const router = createRouter({
           component: () => import('@/views/ApiDocView.vue'),
         },
         {
+          path: 'api-test',
+          name: 'api-test',
+          component: () => import('@/views/ApiTestView.vue'),
+        },
+        {
           path: 'api-keys',
           name: 'api-keys',
           component: () => import('@/views/ApiKeysView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'api-usage',
+          name: 'api-usage',
+          component: () => import('@/views/ApiUsageView.vue'),
           meta: { requiresAuth: true },
         },
         // Admin routes
@@ -119,6 +136,11 @@ const router = createRouter({
               path: 'settings',
               name: 'admin.settings',
               component: () => import('@/views/admin/SettingsView.vue'),
+            },
+            {
+              path: 'api-usage',
+              name: 'admin.api-usage',
+              component: () => import('@/views/admin/ApiUsageView.vue'),
             },
           ],
         },
