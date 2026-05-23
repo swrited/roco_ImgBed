@@ -295,8 +295,8 @@ onMounted(() => {
     <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       <Card
         v-for="img in images" :key="img.key"
-        class="cursor-zoom-in group overflow-hidden transition-all"
-        :class="selectedKeys.includes(img.key) ? 'scale-[0.985] shadow-2xl shadow-primary/25 bg-primary/10' : ''"
+        class="cursor-zoom-in group overflow-hidden transition-all !ring-transparent hover:!ring-white/20 hover:!ring-1"
+        :class="selectedKeys.includes(img.key) ? 'scale-[0.985] shadow-2xl shadow-primary/25 bg-primary/10 !ring-primary/50' : ''"
         @click="openPreview(img)"
       >
         <div class="relative aspect-square overflow-hidden rounded-t-lg">

@@ -136,7 +136,11 @@ onMounted(loadKeys)
         <CardTitle class="text-lg">使用方式</CardTitle>
         <CardDescription>在 API 请求中使用以下任一方式传递 Key</CardDescription>
       </CardHeader>
-      <CardContent class="space-y-3">
+      <CardContent class="space-y-4">
+        <p class="text-xs text-muted-foreground bg-white/5 p-3 rounded-lg border border-white/10">
+          💡 提示：你可以前往左侧菜单的 <strong class="text-primary">API 测试台</strong>，在“认证方式”下拉框中选择不同的模式（Header、URL 路径、URL 参数）进行快速调试和体验。
+        </p>
+
         <div class="space-y-2">
           <p class="text-sm font-medium">请求头方式：</p>
           <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all">
@@ -150,9 +154,9 @@ onMounted(loadKeys)
           </code>
         </div>
         <div class="space-y-2">
-          <p class="text-sm font-medium">无认证快速上传拉取（支持 PicGo / ShareX 等）：</p>
+          <p class="text-sm font-medium">无认证快速拉取/上传（支持 PicGo / ShareX 等）：</p>
           <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all">
-            POST /api/v1/t/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/upload
+            POST /api/v1/t/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/action
           </code>
         </div>
       </CardContent>
