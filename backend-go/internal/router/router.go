@@ -61,6 +61,13 @@ func Setup(cfg *config.Config) *gin.Engine {
 			uploadGroup.POST("/upload", handler.NewImageHandler().Upload)
 		}
 
+		// Token-based Upload (using URL path parameter)
+		tokenUploadGroup := api.Group("")
+		tokenUploadGroup.Use(middleware.TokenPathAuth())
+		{
+			tokenUploadGroup.POST("/upload/:token", handler.NewImageHandler().Upload)
+		}
+
 		// ======== 认证路由（支持 Bearer Token 或 API Key） ========
 		authed := api.Group("")
 		authed.Use(middleware.AuthOrApiKey(cfg))

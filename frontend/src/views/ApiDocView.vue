@@ -149,6 +149,21 @@ const endpoints: Endpoint[] = [
 }`,
   },
   {
+    label: '上传图片',
+    method: 'POST',
+    path: '/api/v1/upload',
+    desc: '上传图片。支持标准的 Header 认证。如果你的工具不支持设置 Header，你可以直接发送到 /api/v1/upload/{API_KEY} 来实现无认证快速上传。',
+    auth: true,
+    body: [
+      { name: 'file', type: 'File', required: '是', desc: '图片文件（必须使用 multipart/form-data 格式）' },
+      { name: 'strategy_id', type: 'Integer', required: '否', desc: '存储策略 ID，不传则使用默认策略' },
+      { name: 'album_id', type: 'Integer', required: '否', desc: '相册 ID，不传则默认未分类' },
+      { name: 'permission', type: 'Integer', required: '否', desc: '1 为公开，0 为私密' },
+    ],
+    response: imageResponseFields(),
+    responseExample: imageResponseExample(),
+  },
+  {
     label: '图片列表',
     method: 'GET',
     path: '/api/v1/images',

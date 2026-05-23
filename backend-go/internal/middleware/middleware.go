@@ -411,3 +411,48 @@ func systemConfigInt(key string, fallback int) int {
 	}
 	return parsed
 }
+
+// TokenPathAuth 允许通过 URL 路径参数 :token 传递 API Key 进行认证
+func TokenPathAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Param("token")
+		if token == "" {
+			model.Fail(c, http.StatusUnauthorized, "缺少 token 参数")
+			c.Abort()
+			return
+		}
+
+		var key model.ApiKey
+		if err := config.DB.Where("key = ? AND revoked_at IS NULL", token).First(&key).Error; err != nil {
+			model.Fail(c, http.StatusUnauthorized, "Token 无效")
+			c.Abort()
+			return
+		}
+
+		// Verify user still exists and is active
+		var user model.User
+		if err := config.DB.First(&user, key.UserID).Error; err != nil {
+			model.Fail(c, http.StatusUnauthorized, "用户不存在")
+			c.Abort()
+			return
+		}
+		if user.Status == 0 {
+			model.Fail(c, http.StatusForbidden, "账号已被冻结")
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", key.UserID)
+		c.Set("is_adminer", user.IsAdminer)
+		c.Set("api_key_id", key.ID)
+		c.Set("auth_type", "api_key")
+		if !checkAPIKeyLimits(c, key.ID) {
+			return
+		}
+
+		// Update last_used
+		now := time.Now()
+		config.DB.Model(&key).Update("last_used", now)
+		c.Next()
+	}
+}
