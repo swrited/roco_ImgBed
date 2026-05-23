@@ -210,14 +210,14 @@ onUnmounted(() => {
           <div class="relative overflow-hidden">
             <img
               :src="img.links?.url"
-              :alt="img.name"
+              :alt="img.alias_name || img.origin_name"
               class="h-44 w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <!-- hover overlay -->
             <div class="absolute inset-0 bg-black/0 transition-all duration-300 group-hover:bg-black/25" />
           </div>
           <CardContent class="p-3">
-            <p class="truncate text-sm font-medium">{{ img.name || img.origin_name }}</p>
+            <p class="truncate text-sm font-medium">{{ img.alias_name || img.origin_name }}</p>
             <div class="mt-2 flex gap-2">
               <Button size="sm" variant="outline" class="flex-1 text-xs" @click.stop="copyLink(img.links?.url)">
                 <Clipboard class="mr-1.5 h-3 w-3" />

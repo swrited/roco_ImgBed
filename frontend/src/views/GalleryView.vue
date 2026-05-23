@@ -149,7 +149,7 @@ onUnmounted(() => {
         <div class="aspect-square overflow-hidden">
           <img
             :src="img.url"
-            :alt="img.name"
+            :alt="img.alias_name || img.origin_name"
             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
             loading="lazy"
           />
@@ -158,7 +158,7 @@ onUnmounted(() => {
         <!-- Hover overlay with metadata -->
         <div class="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100">
           <div class="p-3">
-            <p class="truncate text-xs font-medium text-white">{{ img.name || img.origin_name }}</p>
+            <p class="truncate text-xs font-medium text-white">{{ img.alias_name || img.origin_name }}</p>
             <p class="mt-0.5 flex items-center justify-between text-xs text-white/60">
               <span>{{ img.width }}×{{ img.height }}</span>
               <span>{{ formatSize(img.size) }}</span>
@@ -243,7 +243,7 @@ onUnmounted(() => {
           <div class="flex flex-1 items-center justify-center p-6 min-h-0">
             <img
               :src="previewImage.url"
-              :alt="previewImage.name"
+              :alt="previewImage.alias_name || previewImage.origin_name"
               class="max-h-[70vh] max-w-full rounded-lg object-contain shadow-2xl shadow-black/60"
             />
           </div>
@@ -253,7 +253,7 @@ onUnmounted(() => {
             <div class="flex items-center justify-between gap-4">
               <div class="min-w-0">
                 <p class="truncate font-medium text-white">
-                  {{ previewImage.name || previewImage.origin_name }}
+                  {{ previewImage.alias_name || previewImage.origin_name }}
                 </p>
                 <p class="mt-0.5 text-sm text-white/50">
                   {{ previewImage.width }} × {{ previewImage.height }} ·

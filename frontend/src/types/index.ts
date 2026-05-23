@@ -19,6 +19,7 @@ export interface User {
 export interface Image {
   key: string
   name: string
+  alias_name: string
   origin_name: string
   path: string
   size: number

@@ -107,7 +107,7 @@ function copyLink(url: string) {
 }
 
 function getImageAlt(image: Image): string {
-  return image.origin_name || image.name || image.key
+  return image.alias_name || image.origin_name || image.key
 }
 
 function escapeHtml(value: string): string {
@@ -300,7 +300,7 @@ onMounted(() => {
         @click="openPreview(img)"
       >
         <div class="relative aspect-square overflow-hidden rounded-t-lg">
-          <img :src="img.url" :alt="img.name" class="h-full w-full object-cover" loading="lazy" />
+          <img :src="img.url" :alt="img.alias_name || img.origin_name" class="h-full w-full object-cover" loading="lazy" />
           <div
             v-if="selectedKeys.includes(img.key)"
             class="pointer-events-none absolute inset-0 z-10 bg-black/35"
@@ -346,7 +346,7 @@ onMounted(() => {
                 <DropdownMenuItem @click.stop="copyLink(img.url)">
                   <Copy class="mr-2 h-4 w-4" /> 复制链接
                 </DropdownMenuItem>
-                <DropdownMenuItem @click.stop="openRename(img.key, img.name || img.origin_name)">
+                <DropdownMenuItem @click.stop="openRename(img.key, img.alias_name || img.origin_name)">
                   <Pencil class="mr-2 h-4 w-4" /> 重命名
                 </DropdownMenuItem>
                 <DropdownMenuItem @click.stop="setPermission([img.key], img.permission === 1 ? 0 : 1)">
@@ -363,7 +363,7 @@ onMounted(() => {
           </div>
         </div>
         <CardContent class="p-3 transition-colors" :class="selectedKeys.includes(img.key) ? 'bg-primary/15' : ''">
-          <p class="text-sm truncate font-medium">{{ img.name || img.origin_name }}</p>
+          <p class="text-sm truncate font-medium">{{ img.alias_name || img.origin_name }}</p>
           <p class="text-xs text-muted-foreground">
             {{ img.width }}x{{ img.height }} · {{ formatSize(img.size) }}
           </p>
@@ -440,7 +440,7 @@ onMounted(() => {
     <Dialog v-model:open="showPreviewDialog">
       <DialogContent class="sm:max-w-5xl">
         <DialogHeader class="min-w-0">
-          <DialogTitle class="break-all leading-6">{{ previewImage?.name || previewImage?.origin_name || '图片预览' }}</DialogTitle>
+          <DialogTitle class="break-all leading-6">{{ previewImage?.alias_name || previewImage?.origin_name || '图片预览' }}</DialogTitle>
           <DialogDescription>
             查看大图、复制链接或打开原图。
           </DialogDescription>
@@ -455,7 +455,7 @@ onMounted(() => {
           </div>
           <div class="min-w-0 space-y-4">
             <div class="min-w-0 rounded-xl border p-4 text-sm">
-              <p class="break-all font-medium leading-6">{{ previewImage.origin_name || previewImage.name }}</p>
+              <p class="break-all font-medium leading-6">{{ previewImage.alias_name || previewImage.origin_name }}</p>
               <div class="mt-3 space-y-2 text-muted-foreground">
                 <p>{{ previewImage.width }}x{{ previewImage.height }}</p>
                 <p>{{ formatSize(previewImage.size) }}</p>
