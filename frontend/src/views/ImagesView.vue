@@ -382,6 +382,10 @@ async function handleMove() {
     toast.error('请先选择要移动的图片')
     return
   }
+  if (moveAlbumId.value === '__create__') {
+    toast.error('请先创建相册，或选择已有目标相册')
+    return
+  }
   try {
     const albumId = moveAlbumId.value && moveAlbumId.value !== '__none__' ? Number(moveAlbumId.value) : null
     await imagesApi.move(moveKeys.value, albumId)
@@ -822,7 +826,7 @@ watch(
       <DialogContent class="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>移动到相册</DialogTitle>
-          <DialogDescription>将 {{ moveKeys.length }} 张图片移动到目标相册，或直接创建新相册。</DialogDescription>
+          <DialogDescription>将 {{ moveKeys.length }} 张图片移动到目标相册。需要新相册时，在目标相册里选择创建新相册。</DialogDescription>
         </DialogHeader>
         <div class="space-y-4">
           <div class="space-y-2">
@@ -833,6 +837,7 @@ watch(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="__none__">未分类图片</SelectItem>
+                <SelectItem value="__create__">+ 创建新相册</SelectItem>
                 <SelectItem v-for="album in albums" :key="album.id" :value="String(album.id)">
                   {{ album.name }} · {{ album.permission === 1 ? '公开' : '私密' }}
                 </SelectItem>
@@ -840,10 +845,10 @@ watch(
             </Select>
           </div>
 
-          <div class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+          <div v-if="moveAlbumId === '__create__'" class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
             <div class="mb-3 flex items-center gap-2 text-sm font-medium">
               <Plus class="h-4 w-4 text-violet-300" />
-              快速创建相册
+              创建新相册
             </div>
             <div class="grid gap-3 sm:grid-cols-[1fr_140px]">
               <Input v-model="quickAlbumName" placeholder="新相册名称" @keyup.enter="createAlbumForMove" />

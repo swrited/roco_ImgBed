@@ -8,6 +8,8 @@ import (
 	"lskypro-server/internal/service/storage"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 type AlbumHandler struct{}
@@ -21,11 +23,15 @@ func (h *AlbumHandler) List(c *gin.Context) {
 
 	data := make([]gin.H, 0, len(albums))
 	for _, album := range albums {
+		imageNum := albumImageCount(album.ID)
+		if uint64(imageNum) != album.ImageNum {
+			config.DB.Model(&model.Album{}).Where("id = ?", album.ID).UpdateColumn("image_num", imageNum)
+		}
 		data = append(data, gin.H{
 			"id":             album.ID,
 			"name":           album.Name,
 			"intro":          album.Intro,
-			"image_num":      album.ImageNum,
+			"image_num":      imageNum,
 			"permission":     album.Permission,
 			"cover_image_id": album.CoverImageID,
 			"cover_url":      albumCoverURL(album),
@@ -36,14 +42,26 @@ func (h *AlbumHandler) List(c *gin.Context) {
 	model.Success(c, "success", data)
 }
 
+func albumImageCount(albumID uint) int64 {
+	var count int64
+	config.DB.Model(&model.Image{}).Where("album_id = ?", albumID).Count(&count)
+	return count
+}
+
+func syncAlbumImageNum(albumID uint) {
+	count := albumImageCount(albumID)
+	config.DB.Model(&model.Album{}).Where("id = ?", albumID).UpdateColumn("image_num", count)
+}
+
 func albumCoverURL(album model.Album) string {
+	silent := config.DB.Session(&gorm.Session{Logger: logger.Default.LogMode(logger.Silent)})
 	var img model.Image
 	if album.CoverImageID != nil {
-		if err := config.DB.Where("id = ? AND album_id = ?", *album.CoverImageID, album.ID).First(&img).Error; err == nil {
+		if err := silent.Where("id = ? AND album_id = ?", *album.CoverImageID, album.ID).First(&img).Error; err == nil {
 			return imageURL(img)
 		}
 	}
-	if err := config.DB.Where("album_id = ?", album.ID).Order("created_at DESC").First(&img).Error; err != nil {
+	if err := silent.Where("album_id = ?", album.ID).Order("created_at DESC").First(&img).Error; err != nil {
 		return ""
 	}
 	return imageURL(img)

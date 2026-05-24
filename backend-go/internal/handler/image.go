@@ -524,6 +524,7 @@ func (h *ImageHandler) Delete(c *gin.Context) {
 	config.DB.Delete(&model.Image{}, "id = ?", image.ID)
 	if image.AlbumID != nil {
 		config.DB.Model(&model.Album{}).Where("id = ?", *image.AlbumID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num > 0 THEN image_num - 1 ELSE 0 END"))
+		syncAlbumImageNum(*image.AlbumID)
 	}
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num > 0 THEN image_num - 1 ELSE 0 END"))
 
@@ -549,12 +550,20 @@ func (h *ImageHandler) BatchDelete(c *gin.Context) {
 
 	// 收集 ID 列表批量软删除
 	ids := make([]uint, 0, len(images))
+	albumCounts := make(map[uint]int)
 	for _, img := range images {
 		ids = append(ids, img.ID)
+		if img.AlbumID != nil {
+			albumCounts[*img.AlbumID]++
+		}
 	}
 	config.DB.Delete(&model.Image{}, "id IN ?", ids)
 
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num >= ? THEN image_num - ? ELSE 0 END", len(images), len(images)))
+	for albumID, count := range albumCounts {
+		config.DB.Model(&model.Album{}).Where("id = ?", albumID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num >= ? THEN image_num - ? ELSE 0 END", count, count))
+		syncAlbumImageNum(albumID)
+	}
 
 	model.Success(c, "已移至回收站", nil)
 }
@@ -616,6 +625,7 @@ func (h *ImageHandler) RestoreTrash(c *gin.Context) {
 	}
 	for aID, count := range albumCounts {
 		config.DB.Model(&model.Album{}).Where("id = ?", aID).UpdateColumn("image_num", config.DB.Raw("image_num + ?", count))
+		syncAlbumImageNum(aID)
 	}
 
 	model.Success(c, "恢复成功", nil)
@@ -692,9 +702,11 @@ func (h *ImageHandler) Move(c *gin.Context) {
 
 		if oldAlbumID != nil {
 			config.DB.Model(&model.Album{}).Where("id = ?", *oldAlbumID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num > 0 THEN image_num - 1 ELSE 0 END"))
+			syncAlbumImageNum(*oldAlbumID)
 		}
 		if input.AlbumID != nil {
 			config.DB.Model(&model.Album{}).Where("id = ?", *input.AlbumID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
+			syncAlbumImageNum(*input.AlbumID)
 		}
 	}
 
@@ -761,6 +773,10 @@ func (h *ImageHandler) Gallery(c *gin.Context) {
 
 	var result []map[string]interface{}
 	for _, a := range albums {
+		imageNum := albumImageCount(a.ID)
+		if uint64(imageNum) != a.ImageNum {
+			config.DB.Model(&model.Album{}).Where("id = ?", a.ID).UpdateColumn("image_num", imageNum)
+		}
 		userName := ""
 		if a.User != nil {
 			userName = a.User.Name
@@ -770,7 +786,7 @@ func (h *ImageHandler) Gallery(c *gin.Context) {
 			"id":         a.ID,
 			"name":       a.Name,
 			"intro":      a.Intro,
-			"image_num":  a.ImageNum,
+			"image_num":  imageNum,
 			"user_name":  userName,
 			"cover_url":  albumCoverURL(a),
 			"created_at": a.CreatedAt,
