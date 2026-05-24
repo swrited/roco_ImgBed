@@ -9,6 +9,7 @@ import {
 import { toast } from 'vue-sonner'
 import { Search, ChevronLeft, ChevronRight, X, ExternalLink, Images, Folder, Download, Copy, RefreshCw } from 'lucide-vue-next'
 import type { Image, Album, PaginatedResponse } from '@/types'
+import { copyToClipboard } from '@/utils/clipboard'
 
 // View mode: 'albums' or 'images'
 const viewMode = ref<'albums' | 'images'>('albums')
@@ -147,7 +148,7 @@ function copyLink(type: 'url' | 'markdown' | 'html' | 'bbcode') {
     case 'html': text = previewImage.value.links.html; break
     case 'bbcode': text = previewImage.value.links.bbcode; break
   }
-  navigator.clipboard.writeText(text)
+  copyToClipboard(text)
   toast.success('复制成功')
 }
 

@@ -26,6 +26,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const route = useRoute()
 
@@ -131,7 +132,7 @@ function openPreview(image: Image) {
 }
 
 function copyLink(url: string) {
-  navigator.clipboard.writeText(url)
+  copyToClipboard(url)
   toast.success('链接已复制')
 }
 
@@ -177,7 +178,7 @@ function copyGeneratedLinks() {
     toast.error('没有可复制的链接')
     return
   }
-  navigator.clipboard.writeText(generatedLinks.value)
+  copyToClipboard(generatedLinks.value)
   toast.success('链接已复制到剪贴板')
 }
 
@@ -192,7 +193,7 @@ function copyFormattedLink(img: Image, format: 'url' | 'markdown' | 'html' | 'bb
   } else if (format === 'bbcode') {
     text = `[img]${img.url}[/img]`
   }
-  navigator.clipboard.writeText(text)
+  copyToClipboard(text)
   toast.success('链接已复制到剪贴板')
 }
 

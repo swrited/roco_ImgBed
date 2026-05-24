@@ -9,6 +9,7 @@ import { toast } from 'vue-sonner'
 import { Key, Copy, Plus, Trash2, Clock, RefreshCw } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const keys = ref<ApiKeyItem[]>([])
 const newKeyName = ref('')
@@ -53,7 +54,7 @@ async function revokeKey(id: number) {
 }
 
 function copyKey(key: string) {
-  navigator.clipboard.writeText(key)
+  copyToClipboard(key)
   toast.success('已复制到剪贴板')
 }
 
@@ -138,12 +139,12 @@ onMounted(() => {
         <div class="space-y-2">
           <div class="flex items-center justify-between gap-3">
             <Label class="text-xs text-emerald-300">示例请求</Label>
-            <Button variant="ghost" size="sm" class="h-7 text-xs text-emerald-300" @click="copyKey(`/api/v1/t/${authStore.user?.token || 'xxxxxx'}/images`)">
+            <Button variant="ghost" size="sm" class="h-7 text-xs text-emerald-300" @click="authStore.user?.token && copyKey(`/api/v1/t/${authStore.user.token}/images`)" :disabled="!authStore.user?.token">
               <Copy class="mr-1 h-3 w-3" /> 复制
             </Button>
           </div>
           <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all border border-emerald-500/20 text-emerald-400">
-            GET /api/v1/t/{{ authStore.user?.token || 'xxxxxx' }}/images
+            GET /api/v1/t/{{ authStore.user?.token || '&lt;点击下方「重置令牌」生成&gt;' }}/images
           </code>
         </div>
       </CardContent>

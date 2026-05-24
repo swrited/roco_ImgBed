@@ -13,6 +13,7 @@ import {
 import { toast } from 'vue-sonner'
 import { AlertTriangle, Clipboard, ImagePlus, CloudUpload, X, CheckCircle2 } from 'lucide-vue-next'
 import type { Album } from '@/types'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const uploading        = ref(false)
 const progress         = ref(0)
@@ -100,7 +101,7 @@ async function uploadFiles(files: FileList | File[]) {
 }
 
 function copyLink(url: string) {
-  navigator.clipboard.writeText(url)
+  copyToClipboard(url)
   toast.success('链接已复制')
 }
 

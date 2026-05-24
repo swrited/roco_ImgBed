@@ -14,6 +14,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'vue-sonner'
 import { Copy, FolderOpen, ImagePlus, Loader2, Sparkles } from 'lucide-vue-next'
+import { copyToClipboard } from '@/utils/clipboard'
 
 const router = useRouter()
 
@@ -85,7 +86,7 @@ function startCooldown(seconds: number) {
 }
 
 function copyText(value: string, message = '已复制') {
-  navigator.clipboard.writeText(value)
+  copyToClipboard(value)
   toast.success(message)
 }
 

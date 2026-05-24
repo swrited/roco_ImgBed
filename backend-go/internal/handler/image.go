@@ -10,6 +10,7 @@ import (
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
+	"log"
 
 	_ "golang.org/x/image/webp"
 	"io"
@@ -563,6 +564,7 @@ func (h *ImageHandler) BatchDelete(c *gin.Context) {
 	for albumID, count := range albumCounts {
 		config.DB.Model(&model.Album{}).Where("id = ?", albumID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num >= ? THEN image_num - ? ELSE 0 END", count, count))
 		syncAlbumImageNum(albumID)
+		log.Printf("[DEBUG] BatchDelete: album %d, decremented by %d, new count=%d", albumID, count, albumImageCount(albumID))
 	}
 
 	model.Success(c, "已移至回收站", nil)

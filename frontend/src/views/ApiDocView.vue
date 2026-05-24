@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'vue-sonner'
 import { Check, Copy, Terminal } from 'lucide-vue-next'
 import FieldTable from '@/components/api/FieldTable.vue'
+import { copyToClipboard } from '@/utils/clipboard'
 
 type HttpMethod = 'GET' | 'POST'
 
@@ -307,7 +308,7 @@ function curlExample(ep: Endpoint): string {
 }
 
 function copyText(text: string, key: string) {
-  navigator.clipboard.writeText(text)
+  copyToClipboard(text)
   copied.value = key
   toast.success('已复制')
   setTimeout(() => {

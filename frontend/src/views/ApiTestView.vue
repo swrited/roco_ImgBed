@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'vue-sonner'
 import { Copy, ExternalLink, Play, RotateCcw, Terminal } from 'lucide-vue-next'
+import { copyToClipboard } from '@/utils/clipboard'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
@@ -275,12 +276,12 @@ function startCooldown(seconds: number) {
 }
 
 function copyResponse() {
-  navigator.clipboard.writeText(responseText.value || errorText.value)
+  copyToClipboard(responseText.value || errorText.value)
   toast.success('响应内容已复制')
 }
 
 function copyRequestCommand() {
-  navigator.clipboard.writeText(requestCommand.value)
+  copyToClipboard(requestCommand.value)
   toast.success('请求命令已复制')
 }
 
