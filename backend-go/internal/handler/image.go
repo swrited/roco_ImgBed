@@ -193,6 +193,7 @@ func buildUploadResponse(img model.Image, url string) gin.H {
 	return gin.H{
 		"key":         img.Key,
 		"name":        img.Name,
+		"alias_name":  img.AliasName,
 		"pathname":    img.Path + "/" + img.Name,
 		"origin_name": img.OriginName,
 		"size":        img.Size,
@@ -233,6 +234,7 @@ func buildImageResponse(img model.Image) gin.H {
 	return gin.H{
 		"key":         img.Key,
 		"name":        img.Name,
+		"alias_name":  img.AliasName,
 		"origin_name": img.OriginName,
 		"pathname":    img.Pathname(),
 		"size":        img.Size,
@@ -325,36 +327,42 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 
 	// 11. 写入数据库
 
-	// 确定默认权限：读取用户配置中的 default_permission，否则默认私密
-	var defaultPermission uint = 0
-	var defaultAlbumID *uint
+	// 11. 确定目标相册与处理 Tags。未指定相册时保持未分类。
+	var targetAlbumID *uint
+	var tags []model.Tag
 	if userID != nil {
-		var user model.User
-		if err := config.DB.First(&user, *userID).Error; err == nil {
-			if permVal, ok := user.Configs["default_permission"]; ok {
-				switch v := permVal.(type) {
-				case float64:
-					defaultPermission = uint(v)
-				case int:
-					defaultPermission = uint(v)
-				case int64:
-					defaultPermission = uint(v)
-				case uint:
-					defaultPermission = v
-				}
+		targetAlbumID = resolveRequestedAlbumID(*userID, c.PostForm("album_id"))
+
+		tagNames := c.PostFormArray("tags[]")
+		if len(tagNames) == 0 {
+			if tagsStr := c.PostForm("tags"); tagsStr != "" {
+				tagNames = strings.Split(tagsStr, ",")
 			}
-			defaultAlbumID = resolveDefaultAlbumID(*userID, user.Configs)
+		}
+		if len(tagNames) > 5 {
+			tagNames = tagNames[:5]
+		}
+		for _, name := range tagNames {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			var tag model.Tag
+			if err := config.DB.Where("name = ? AND user_id = ?", name, *userID).FirstOrCreate(&tag, model.Tag{Name: name, UserID: *userID}).Error; err == nil {
+				tags = append(tags, tag)
+			}
 		}
 	}
 
 	image := model.Image{
 		UserID:     userID,
-		AlbumID:    defaultAlbumID,
+		AlbumID:    targetAlbumID,
 		StrategyID: &strategy.ID,
 		Key:        generateKey(6),
 		Path:       dirPath,
 		Name:       uniqueName,
 		OriginName: file.Filename,
+		AliasName:  file.Filename,
 		Size:       math.Round(sizeKB*1000) / 1000,
 		Mimetype:   file.Header.Get("Content-Type"),
 		Extension:  ext,
@@ -362,8 +370,8 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 		SHA1:       sha1Sum,
 		Width:      imgWidth,
 		Height:     imgHeight,
-		Permission: defaultPermission,
 		UploadedIP: c.ClientIP(),
+		Tags:       tags,
 	}
 
 	if err := config.DB.Select("*").Create(&image).Error; err != nil {
@@ -376,8 +384,8 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	if userID != nil {
 		config.DB.Model(&model.User{}).Where("id = ?", *userID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
 	}
-	if defaultAlbumID != nil {
-		config.DB.Model(&model.Album{}).Where("id = ?", *defaultAlbumID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
+	if targetAlbumID != nil {
+		config.DB.Model(&model.Album{}).Where("id = ?", *targetAlbumID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
 	}
 
 	// 12. 构建响应
@@ -418,6 +426,23 @@ func resolveDefaultAlbumID(userID uint, configs model.JSONMap) *uint {
 	return &albumID
 }
 
+func resolveRequestedAlbumID(userID uint, value string) *uint {
+	value = strings.TrimSpace(value)
+	if value == "" || value == "0" || value == "null" || value == "__none__" {
+		return nil
+	}
+	parsed, err := strconv.ParseUint(value, 10, 64)
+	if err != nil || parsed == 0 {
+		return nil
+	}
+	albumID := uint(parsed)
+	var album model.Album
+	if err := config.DB.Where("id = ? AND user_id = ?", albumID, userID).First(&album).Error; err != nil {
+		return nil
+	}
+	return &albumID
+}
+
 func (h *ImageHandler) ListImages(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	page := 1
@@ -433,7 +458,7 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 	var images []model.Image
 	var total int64
 
-	query := config.DB.Model(&model.Image{}).Where("user_id = ?", userID)
+	query := config.DB.Model(&model.Image{}).Where("user_id = ?", userID).Preload("Tags")
 
 	if albumID := c.Query("album_id"); albumID != "" {
 		if albumID == "0" {
@@ -442,8 +467,8 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 			query = query.Where("album_id = ?", albumID)
 		}
 	}
-	if permission := c.Query("permission"); permission != "" {
-		query = query.Where("permission = ?", permission)
+	if tagID := c.Query("tag_id"); tagID != "" {
+		query = query.Joins("JOIN image_tags ON image_tags.image_id = images.id").Where("image_tags.tag_id = ?", tagID)
 	}
 	if q := c.Query("q"); q != "" {
 		query = query.Where("origin_name LIKE ? OR alias_name LIKE ?", "%"+q+"%", "%"+q+"%")
@@ -495,23 +520,14 @@ func (h *ImageHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	// 通过存储适配器删除物理文件
-	if image.StrategyID != nil {
-		var strategy model.Strategy
-		if err := config.DB.First(&strategy, *image.StrategyID).Error; err == nil {
-			if adapter, err := storage.Factory(&strategy); err == nil {
-				adapter.Delete(image.Pathname())
-			}
-		}
-	}
-
-	config.DB.Delete(&image)
+	// 软删除：只设置 deleted_at，不删除物理文件
+	config.DB.Delete(&model.Image{}, "id = ?", image.ID)
 	if image.AlbumID != nil {
 		config.DB.Model(&model.Album{}).Where("id = ?", *image.AlbumID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num > 0 THEN image_num - 1 ELSE 0 END"))
 	}
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num > 0 THEN image_num - 1 ELSE 0 END"))
 
-	model.Success(c, "删除成功", nil)
+	model.Success(c, "已移至回收站", nil)
 }
 
 func (h *ImageHandler) BatchDelete(c *gin.Context) {
@@ -526,8 +542,99 @@ func (h *ImageHandler) BatchDelete(c *gin.Context) {
 
 	var images []model.Image
 	config.DB.Where("`key` IN ? AND user_id = ?", input.Keys, userID).Find(&images)
+	if len(images) == 0 {
+		model.Success(c, "已移至回收站", nil)
+		return
+	}
+
+	// 收集 ID 列表批量软删除
+	ids := make([]uint, 0, len(images))
 	for _, img := range images {
-		// 通过存储适配器删除物理文件
+		ids = append(ids, img.ID)
+	}
+	config.DB.Delete(&model.Image{}, "id IN ?", ids)
+
+	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num >= ? THEN image_num - ? ELSE 0 END", len(images), len(images)))
+
+	model.Success(c, "已移至回收站", nil)
+}
+
+func (h *ImageHandler) TrashList(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	perPage := 30
+	var images []model.Image
+	var total int64
+
+	query := config.DB.Unscoped().Where("user_id = ? AND deleted_at IS NOT NULL", userID)
+	query.Model(&model.Image{}).Count(&total)
+
+	if err := query.Order("deleted_at DESC").Offset((page - 1) * perPage).Limit(perPage).Find(&images).Error; err != nil {
+		model.Fail(c, http.StatusInternalServerError, "获取回收站列表失败")
+		return
+	}
+
+	dtos := buildImageDTOs(images)
+	model.Success(c, "success", gin.H{
+		"data":         dtos,
+		"current_page": page,
+		"per_page":     perPage,
+		"total":        total,
+		"last_page":    (total + int64(perPage) - 1) / int64(perPage),
+	})
+}
+
+func (h *ImageHandler) RestoreTrash(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var input struct {
+		Keys []string `json:"keys"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil || len(input.Keys) == 0 {
+		model.Fail(c, http.StatusUnprocessableEntity, "请提供要恢复的图片")
+		return
+	}
+
+	var images []model.Image
+	config.DB.Unscoped().Where("`key` IN ? AND user_id = ? AND deleted_at IS NOT NULL", input.Keys, userID).Find(&images)
+	if len(images) == 0 {
+		model.Success(c, "恢复成功", nil)
+		return
+	}
+
+	// 恢复记录
+	config.DB.Unscoped().Model(&model.Image{}).Where("`key` IN ?", input.Keys).Update("deleted_at", nil)
+
+	// 恢复 user 的 image_num
+	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("image_num + ?", len(images)))
+
+	// 恢复 album 的 image_num
+	albumCounts := make(map[uint]int)
+	for _, img := range images {
+		if img.AlbumID != nil {
+			albumCounts[*img.AlbumID]++
+		}
+	}
+	for aID, count := range albumCounts {
+		config.DB.Model(&model.Album{}).Where("id = ?", aID).UpdateColumn("image_num", config.DB.Raw("image_num + ?", count))
+	}
+
+	model.Success(c, "恢复成功", nil)
+}
+
+func (h *ImageHandler) ForceDeleteTrash(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var input struct {
+		Keys []string `json:"keys"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil || len(input.Keys) == 0 {
+		model.Fail(c, http.StatusUnprocessableEntity, "请提供要彻底删除的图片")
+		return
+	}
+
+	var images []model.Image
+	config.DB.Unscoped().Where("`key` IN ? AND user_id = ? AND deleted_at IS NOT NULL", input.Keys, userID).Find(&images)
+
+	for _, img := range images {
 		if img.StrategyID != nil {
 			var strategy model.Strategy
 			if err := config.DB.First(&strategy, *img.StrategyID).Error; err == nil {
@@ -536,11 +643,11 @@ func (h *ImageHandler) BatchDelete(c *gin.Context) {
 				}
 			}
 		}
-		config.DB.Delete(&img)
+		config.DB.Unscoped().Exec("DELETE FROM image_tags WHERE image_id = ?", img.ID)
+		config.DB.Unscoped().Delete(&img)
 	}
-	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("CASE WHEN image_num >= ? THEN image_num - ? ELSE 0 END", len(images), len(images)))
 
-	model.Success(c, "删除成功", nil)
+	model.Success(c, "彻底删除成功", nil)
 }
 
 func (h *ImageHandler) Rename(c *gin.Context) {
@@ -594,20 +701,42 @@ func (h *ImageHandler) Move(c *gin.Context) {
 	model.Success(c, "移动成功", nil)
 }
 
-func (h *ImageHandler) Permission(c *gin.Context) {
+func (h *ImageHandler) UpdateTags(c *gin.Context) {
 	userID := c.GetUint("user_id")
+	key := c.Param("key")
+
 	var input struct {
-		Keys       []string `json:"keys" binding:"required"`
-		Permission uint     `json:"permission"`
+		Tags []string `json:"tags"`
 	}
 	if err := c.ShouldBindJSON(&input); err != nil {
 		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
 		return
 	}
 
-	config.DB.Model(&model.Image{}).Where("`key` IN ? AND user_id = ?", input.Keys, userID).Update("permission", input.Permission)
+	var image model.Image
+	if err := config.DB.Where("`key` = ? AND user_id = ?", key, userID).First(&image).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "图片不存在")
+		return
+	}
 
-	model.Success(c, "设置成功", nil)
+	var newTags []model.Tag
+	if len(input.Tags) > 5 {
+		input.Tags = input.Tags[:5]
+	}
+	for _, name := range input.Tags {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		var tag model.Tag
+		if err := config.DB.Where("name = ? AND user_id = ?", name, userID).FirstOrCreate(&tag, model.Tag{Name: name, UserID: userID}).Error; err == nil {
+			newTags = append(newTags, tag)
+		}
+	}
+
+	config.DB.Model(&image).Association("Tags").Replace(newTags)
+
+	model.Success(c, "更新成功", nil)
 }
 
 func (h *ImageHandler) Gallery(c *gin.Context) {
@@ -618,24 +747,74 @@ func (h *ImageHandler) Gallery(c *gin.Context) {
 		page = p
 	}
 
+	var albums []model.Album
+	var total int64
+
+	query := config.DB.Model(&model.Album{}).Preload("User").Where("permission = ?", 1) // 1 = public
+
+	if q := c.Query("q"); q != "" {
+		query = query.Where("name LIKE ?", "%"+q+"%")
+	}
+
+	query.Count(&total)
+	query.Order("created_at DESC").Offset((page - 1) * perPage).Limit(perPage).Find(&albums)
+
+	var result []map[string]interface{}
+	for _, a := range albums {
+		userName := ""
+		if a.User != nil {
+			userName = a.User.Name
+		}
+
+		result = append(result, map[string]interface{}{
+			"id":         a.ID,
+			"name":       a.Name,
+			"intro":      a.Intro,
+			"image_num":  a.ImageNum,
+			"user_name":  userName,
+			"cover_url":  albumCoverURL(a),
+			"created_at": a.CreatedAt,
+		})
+	}
+
+	model.Success(c, "success", gin.H{
+		"data":         result,
+		"current_page": page,
+		"per_page":     perPage,
+		"total":        total,
+		"last_page":    (total + int64(perPage) - 1) / int64(perPage),
+	})
+}
+
+func (h *ImageHandler) GalleryAlbum(c *gin.Context) {
+	albumID := c.Param("id")
+	page := 1
+	perPage := 20
+
+	if p, err := strconv.Atoi(c.DefaultQuery("page", "1")); err == nil && p > 0 {
+		page = p
+	}
+
+	var album model.Album
+	if err := config.DB.Where("id = ? AND permission = ?", albumID, 1).First(&album).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "相册不存在或非公开")
+		return
+	}
+
 	var images []model.Image
 	var total int64
 
-	query := config.DB.Model(&model.Image{}).Where("permission = ? AND is_unhealthy = ?", 1, false)
-
-	if q := c.Query("q"); q != "" {
-		query = query.Where("origin_name LIKE ?", "%"+q+"%")
-	}
-	if userID := c.Query("user_id"); userID != "" {
-		query = query.Where("user_id = ?", userID)
-	}
-
-	query.Order("created_at DESC").Count(&total)
-	query.Offset((page - 1) * perPage).Limit(perPage).Find(&images)
+	query := config.DB.Model(&model.Image{}).Where("album_id = ?", albumID).Preload("Tags")
+	query.Count(&total)
+	query.Order("created_at DESC").Offset((page - 1) * perPage).Limit(perPage).Find(&images)
 
 	imageDTOs := buildImageDTOs(images)
 
 	model.Success(c, "success", gin.H{
+		"album": map[string]interface{}{
+			"id":   album.ID,
+			"name": album.Name,
+		},
 		"data":         imageDTOs,
 		"current_page": page,
 		"per_page":     perPage,
@@ -806,7 +985,8 @@ func adaptiveTarget(userAgent string) (orientation string, ratio string) {
 // ImageDTO wraps model.Image with a computed URL field
 type ImageDTO struct {
 	model.Image
-	URL string `json:"url"`
+	URL   string           `json:"url"`
+	Links model.ImageLinks `json:"links"`
 }
 
 // buildImageDTOs 为图片列表构建带 URL 的 DTO
@@ -850,6 +1030,7 @@ func buildImageDTOs(images []model.Image) []ImageDTO {
 				dto.URL = baseURL + img.Pathname()
 			}
 		}
+		dto.Links = buildImageLinks(dto.URL)
 		result[i] = dto
 	}
 	return result

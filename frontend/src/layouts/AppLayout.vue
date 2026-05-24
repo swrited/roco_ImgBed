@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Menu, LayoutDashboard, Upload, Image, FolderOpen, Images,
   BookOpen, Settings, Shield, HardDrive, BarChart3, Users,
-  Key, Terminal, Activity, WandSparkles,
+  Key, Terminal, Activity, WandSparkles, Trash2,
 } from 'lucide-vue-next'
 import { computed, onMounted } from 'vue'
 
@@ -34,13 +34,13 @@ const navItems = [
   { to: '/dashboard',   label: '控制面板', icon: LayoutDashboard, requiresAuth: true  },
   { to: '/upload',      label: '上传图片', icon: Upload,          requiresAuth: true  },
   { to: '/ai-generate', label: 'AI 生图',  icon: WandSparkles,   requiresAuth: true  },
-  { to: '/images',      label: '图片管理', icon: Image,           requiresAuth: true  },
-  { to: '/albums',      label: '相册管理', icon: FolderOpen,      requiresAuth: true  },
+  { to: '/library',     label: '我的图库', icon: Images,          requiresAuth: true  },
   { to: '/api-keys',    label: 'API Keys', icon: Key,             requiresAuth: true  },
   { to: '/api-usage',   label: 'API 统计', icon: Activity,        requiresAuth: true  },
-  { to: '/gallery',     label: '画廊',     icon: Images                               },
+  { to: '/gallery',     label: '探索发现', icon: FolderOpen                         },
   { to: '/api-doc',     label: 'API 文档', icon: BookOpen                             },
   { to: '/api-test',    label: 'API 测试', icon: Terminal                             },
+  { to: '/trash',       label: '回收站',   icon: Trash2,         requiresAuth: true  },
 ]
 
 const adminNavItems = [

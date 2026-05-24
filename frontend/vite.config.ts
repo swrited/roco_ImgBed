@@ -8,7 +8,7 @@ import vueDevTools from 'vite-plugin-vue-devtools'
 export default defineConfig({
   plugins: [
     vue(),
-    vueDevTools(),
+    // vueDevTools(), // 注释掉此插件以解决按 Ctrl+C 无法退出的问题
   ],
   resolve: {
     alias: {

@@ -2,11 +2,17 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { imagesApi } from '@/api/images'
 import { usersApi } from '@/api/users'
+import { albumsApi } from '@/api/albums'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
+import { Input } from '@/components/ui/input'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'vue-sonner'
 import { AlertTriangle, Clipboard, ImagePlus, CloudUpload, X, CheckCircle2 } from 'lucide-vue-next'
+import type { Album } from '@/types'
 
 const uploading        = ref(false)
 const progress         = ref(0)
@@ -16,6 +22,9 @@ const fileInput        = ref<HTMLInputElement>()
 const uploadMaxSizeKB  = ref(10240)
 const uploadError      = ref('')
 const limitLoading     = ref(false)
+const inputTags        = ref('')
+const albums           = ref<Album[]>([])
+const selectedAlbumId  = ref('__none__')
 
 const uploadLimitLabel = computed(() => {
   if (!uploadMaxSizeKB.value || uploadMaxSizeKB.value <= 0) return '不限制单张图片大小'
@@ -33,6 +42,12 @@ async function loadUploadLimit() {
   } catch { /* use default */ } finally {
     limitLoading.value = false
   }
+}
+
+async function loadAlbums() {
+  try {
+    albums.value = await albumsApi.list()
+  } catch { /**/ }
 }
 
 function refreshLimitOnVisible() {
@@ -62,6 +77,13 @@ async function uploadFiles(files: FileList | File[]) {
     }
     const formData = new FormData()
     formData.append('file', file)
+    if (selectedAlbumId.value !== '__none__') {
+      formData.append('album_id', selectedAlbumId.value)
+    }
+    if (inputTags.value.trim()) {
+      const tagsArray = inputTags.value.split(',').map(t => t.trim()).filter(Boolean)
+      tagsArray.forEach(t => formData.append('tags[]', t))
+    }
     uploading.value = true
     progress.value  = 0
     try {
@@ -84,6 +106,7 @@ function copyLink(url: string) {
 
 onMounted(() => {
   loadUploadLimit()
+  loadAlbums()
   window.addEventListener('focus', loadUploadLimit)
   document.addEventListener('visibilitychange', refreshLimitOnVisible)
 })
@@ -155,6 +178,20 @@ onUnmounted(() => {
         <p class="mt-2 max-w-md text-sm leading-6 text-muted-foreground">
           支持 JPG、PNG、GIF、WebP 等格式。多个文件会按顺序上传，{{ uploadLimitLabel }}。
         </p>
+        <div class="mt-4 grid w-full max-w-xl gap-3 sm:grid-cols-2" @click.stop>
+          <Select v-model="selectedAlbumId">
+            <SelectTrigger class="bg-background">
+              <SelectValue placeholder="未分类图片" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">未分类图片</SelectItem>
+              <SelectItem v-for="album in albums" :key="album.id" :value="String(album.id)">
+                {{ album.name }}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Input v-model="inputTags" placeholder="添加标签，逗号分隔" class="bg-background" @click.stop />
+        </div>
         <Button class="mt-6 pointer-events-none" type="button">
           <ImagePlus class="mr-2 h-4 w-4" />
           选择图片

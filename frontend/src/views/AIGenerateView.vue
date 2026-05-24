@@ -91,7 +91,7 @@ function copyText(value: string, message = '已复制') {
 
 function openAlbum() {
   if (!album.value?.id) return
-  router.push({ name: 'images', query: { album_id: album.value.id } })
+  router.push({ name: 'library.images', query: { album_id: album.value.id } })
 }
 </script>
 

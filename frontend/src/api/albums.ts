@@ -6,11 +6,11 @@ export const albumsApi = {
     return apiClient.get<Album[]>('/albums')
   },
 
-  create(data: { name: string; intro?: string }) {
+  create(data: { name: string; intro?: string; permission: number; cover_image_id?: number | null }) {
     return apiClient.post<Album>('/albums', data)
   },
 
-  update(id: number, data: { name?: string; intro?: string }) {
+  update(id: number, data: { name?: string; intro?: string; permission: number; cover_image_id?: number | null }) {
     return apiClient.put<Album>(`/albums/${id}`, data)
   },
 

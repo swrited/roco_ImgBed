@@ -57,15 +57,21 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         {
-          path: 'images',
-          name: 'images',
+          path: 'library',
+          name: 'library',
+          component: () => import('@/views/LibraryView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
+          path: 'library/images',
+          name: 'library.images',
           component: () => import('@/views/ImagesView.vue'),
           meta: { requiresAuth: true },
         },
         {
-          path: 'albums',
-          name: 'albums',
-          component: () => import('@/views/AlbumsView.vue'),
+          path: 'trash',
+          name: 'trash',
+          component: () => import('@/views/TrashView.vue'),
           meta: { requiresAuth: true },
         },
         {

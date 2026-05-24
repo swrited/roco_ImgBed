@@ -41,6 +41,10 @@ export const usersApi = {
     return apiClient.put<User>('/profile', data)
   },
 
+  refreshToken() {
+    return apiClient.put<{ token: string }>('/profile/token')
+  },
+
   setStrategy(strategyId: number) {
     return apiClient.put('/user/settings/strategy', { strategy_id: strategyId })
   },

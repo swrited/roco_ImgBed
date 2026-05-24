@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 // -------- Response DTOs --------
@@ -108,6 +110,7 @@ type User struct {
 	Email           string     `gorm:"column:email;type:varchar(255);uniqueIndex" json:"email"`
 	Password        string     `gorm:"column:password;type:varchar(255)" json:"-"`
 	RememberToken   string     `gorm:"column:remember_token;type:varchar(100)" json:"-"`
+	Token           string     `gorm:"column:token;type:varchar(16);uniqueIndex" json:"token"`
 	IsAdminer       bool       `gorm:"column:is_adminer;default:false" json:"is_adminer"`
 	Capacity        float64    `gorm:"column:capacity;type:decimal(20,2);default:0" json:"capacity"`
 	URL             string     `gorm:"column:url;type:varchar(255);default:''" json:"url"`
@@ -122,6 +125,13 @@ type User struct {
 	Images          []Image    `gorm:"foreignKey:UserID" json:"-"`
 }
 
+func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
+	if u.Token == "" {
+		u.Token = RandomString(6)
+	}
+	return
+}
+
 func (User) TableName() string { return "users" }
 
 type UserProfile struct {
@@ -134,6 +144,7 @@ type UserProfile struct {
 	AlbumNum  uint64  `json:"album_num"`
 	URL       string  `json:"url"`
 	Avatar    string  `json:"avatar"`
+	Token     string  `json:"token"`
 }
 
 func (u *User) ToProfile() UserProfile {
@@ -147,6 +158,7 @@ func (u *User) ToProfile() UserProfile {
 		AlbumNum:  u.AlbumNum,
 		URL:       u.URL,
 		Avatar:    fmt.Sprintf("https://cravatar.cn/avatar/%x?s=96&d=mp&r=g", md5Hash(u.Email)),
+		Token:     u.Token,
 	}
 }
 
@@ -200,11 +212,13 @@ var StrategyKeyNames = map[uint]string{
 
 type Album struct {
 	BaseModel
-	UserID   uint   `gorm:"column:user_id;index" json:"user_id"`
-	Name     string `gorm:"column:name;type:varchar(64)" json:"name"`
-	Intro    string `gorm:"column:intro;type:varchar(255);default:''" json:"intro"`
-	ImageNum uint64 `gorm:"column:image_num;default:0" json:"image_num"`
-	User     *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	UserID       uint   `gorm:"column:user_id;index" json:"user_id"`
+	Name         string `gorm:"column:name;type:varchar(64)" json:"name"`
+	Intro        string `gorm:"column:intro;type:varchar(255);default:''" json:"intro"`
+	ImageNum     uint64 `gorm:"column:image_num;default:0" json:"image_num"`
+	Permission   uint   `gorm:"column:permission;default:0" json:"permission"`
+	CoverImageID *uint  `gorm:"column:cover_image_id;index;default:null" json:"cover_image_id"`
+	User         *User  `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
 func (Album) TableName() string { return "albums" }
@@ -213,32 +227,45 @@ func (Album) TableName() string { return "albums" }
 
 type Image struct {
 	BaseModel
-	UserID      *uint   `gorm:"column:user_id;index;default:null" json:"user_id"`
-	AlbumID     *uint   `gorm:"column:album_id;index;default:null" json:"album_id"`
-	GroupID     *uint   `gorm:"column:group_id;default:null" json:"group_id"`
-	StrategyID  *uint   `gorm:"column:strategy_id;default:null" json:"strategy_id"`
-	Key         string  `gorm:"column:key;type:varchar(64);uniqueIndex" json:"key"`
-	Path        string  `gorm:"column:path;type:varchar(255)" json:"path"`
-	Name        string  `gorm:"column:name;type:varchar(255)" json:"name"`
-	OriginName  string  `gorm:"column:origin_name;type:varchar(255)" json:"origin_name"`
-	AliasName   string  `gorm:"column:alias_name;type:varchar(255);default:''" json:"alias_name"`
-	Size        float64 `gorm:"column:size;type:decimal(10,2);default:0" json:"size"`
-	Mimetype    string  `gorm:"column:mimetype;type:varchar(32)" json:"mimetype"`
-	Extension   string  `gorm:"column:extension;type:varchar(32)" json:"extension"`
-	MD5         string  `gorm:"column:md5;type:varchar(32)" json:"md5"`
-	SHA1        string  `gorm:"column:sha1;type:varchar(128)" json:"sha1"`
-	Width       uint    `gorm:"column:width;default:0" json:"width"`
-	Height      uint    `gorm:"column:height;default:0" json:"height"`
-	Permission  uint    `gorm:"column:permission;default:0" json:"permission"`
-	IsUnhealthy bool    `gorm:"column:is_unhealthy;default:false" json:"is_unhealthy"`
-	UploadedIP  string  `gorm:"column:uploaded_ip;type:varchar(45);default:''" json:"uploaded_ip"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"deleted_at"`
+	UserID      *uint          `gorm:"column:user_id;index;default:null" json:"user_id"`
+	AlbumID     *uint          `gorm:"column:album_id;index;default:null" json:"album_id"`
+	GroupID     *uint          `gorm:"column:group_id;default:null" json:"group_id"`
+	StrategyID  *uint          `gorm:"column:strategy_id;default:null" json:"strategy_id"`
+	Key         string         `gorm:"column:key;type:varchar(64);uniqueIndex" json:"key"`
+	Path        string         `gorm:"column:path;type:varchar(255)" json:"path"`
+	Name        string         `gorm:"column:name;type:varchar(255)" json:"name"`
+	OriginName  string         `gorm:"column:origin_name;type:varchar(255)" json:"origin_name"`
+	AliasName   string         `gorm:"column:alias_name;type:varchar(255);default:''" json:"alias_name"`
+	Size        float64        `gorm:"column:size;type:decimal(10,2);default:0" json:"size"`
+	Mimetype    string         `gorm:"column:mimetype;type:varchar(32)" json:"mimetype"`
+	Extension   string         `gorm:"column:extension;type:varchar(32)" json:"extension"`
+	MD5         string         `gorm:"column:md5;type:varchar(32)" json:"md5"`
+	SHA1        string         `gorm:"column:sha1;type:varchar(128)" json:"sha1"`
+	Width       uint           `gorm:"column:width;default:0" json:"width"`
+	Height      uint           `gorm:"column:height;default:0" json:"height"`
+	IsUnhealthy bool           `gorm:"column:is_unhealthy;default:false" json:"is_unhealthy"`
+	UploadedIP  string         `gorm:"column:uploaded_ip;type:varchar(45);default:''" json:"uploaded_ip"`
 
 	User     *User     `gorm:"foreignKey:UserID" json:"user,omitempty"`
 	Album    *Album    `gorm:"foreignKey:AlbumID" json:"album,omitempty"`
 	Strategy *Strategy `gorm:"foreignKey:StrategyID" json:"strategy,omitempty"`
+	Tags     []Tag     `gorm:"many2many:image_tags;" json:"tags,omitempty"`
 }
 
 func (Image) TableName() string { return "images" }
+
+// -------- Tag (tags) --------
+
+type Tag struct {
+	BaseModel
+	UserID uint    `gorm:"column:user_id;index" json:"user_id"`
+	Name   string  `gorm:"column:name;type:varchar(64)" json:"name"`
+	Images []Image `gorm:"many2many:image_tags;" json:"-"`
+	User   *User   `gorm:"foreignKey:UserID" json:"-"`
+}
+
+func (Tag) TableName() string { return "tags" }
 
 func (img *Image) Filename() string {
 	if img.AliasName != "" {

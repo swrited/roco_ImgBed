@@ -360,7 +360,6 @@ func saveGeneratedImage(c *gin.Context, adapter storage.Adapter, strategy *model
 		SHA1:       sha1Sum,
 		Width:      width,
 		Height:     height,
-		Permission: resolveDefaultPermission(userID),
 		UploadedIP: c.ClientIP(),
 	}
 

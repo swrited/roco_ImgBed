@@ -43,6 +43,7 @@ func Setup(cfg *config.Config) *gin.Engine {
 		{
 			imgH := handler.NewImageHandler()
 			apiPub.GET("/gallery", imgH.Gallery)
+			apiPub.GET("/gallery/albums/:id", imgH.GalleryAlbum)
 			apiPub.GET("/strategies", handler.NewStrategyHandler().List)
 		}
 
@@ -85,6 +86,7 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	userH := handler.NewUserHandler()
 	imgH := handler.NewImageHandler()
 	albumH := handler.NewAlbumHandler()
+	tagH := handler.NewTagHandler()
 	apiKeyH := handler.NewApiKeyHandler()
 	apiUsageH := handler.NewAPIUsageHandler()
 	aiImageH := handler.NewAIImageHandler()
@@ -92,6 +94,7 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	// Profile
 	g.GET("/profile", userH.Profile)
 	g.PUT("/profile", userH.UpdateProfile)
+	g.PUT("/profile/token", userH.RefreshToken)
 
 	// Dashboard
 	g.GET("/dashboard", userH.Dashboard)
@@ -111,11 +114,14 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 
 	// Images
 	g.GET("/images", imgH.ListImages)
+	g.GET("/images/trash", imgH.TrashList)
+	g.PUT("/images/trash/restore", imgH.RestoreTrash)
+	g.DELETE("/images/trash/force", imgH.ForceDeleteTrash)
 	g.DELETE("/images", imgH.BatchDelete)
 	g.DELETE("/images/:key", imgH.Delete)
 	g.PUT("/images/rename", imgH.Rename)
 	g.PUT("/images/movement", imgH.Move)
-	g.PUT("/images/permission", imgH.Permission)
+	g.PUT("/images/:key/tags", imgH.UpdateTags)
 
 	// AI image generation
 	g.POST("/ai/images", aiImageH.Generate)
@@ -125,6 +131,10 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	g.POST("/albums", albumH.Create)
 	g.PUT("/albums/:id", albumH.Update)
 	g.DELETE("/albums/:id", albumH.Delete)
+
+	// Tags
+	g.GET("/tags", tagH.List)
+	g.DELETE("/tags/:id", tagH.Delete)
 
 	// Token management
 	g.DELETE("/tokens", authH.Logout)

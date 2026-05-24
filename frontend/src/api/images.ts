@@ -29,7 +29,19 @@ export const imagesApi = {
     return apiClient.put('/images/movement', { keys, album_id })
   },
 
-  setPermission(keys: string[], permission: number) {
-    return apiClient.put('/images/permission', { keys, permission })
+  updateTags(key: string, tags: string[]) {
+    return apiClient.put(`/images/${key}/tags`, { tags })
+  },
+
+  getTrash(params?: Record<string, any>) {
+    return apiClient.get<PaginatedResponse<Image>>('/images/trash', { params })
+  },
+
+  restore(keys: string[]) {
+    return apiClient.put('/images/trash/restore', { keys })
+  },
+
+  forceDelete(keys: string[]) {
+    return apiClient.delete('/images/trash/force', { data: { keys } })
   },
 }

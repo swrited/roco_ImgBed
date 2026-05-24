@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'vue-sonner'
-import { Key, Copy, Plus, Trash2, Clock } from 'lucide-vue-next'
+import { Key, Copy, Plus, Trash2, Clock, RefreshCw } from 'lucide-vue-next'
+import { useAuthStore } from '@/stores/auth'
+import { usersApi } from '@/api/users'
 
 const keys = ref<ApiKeyItem[]>([])
 const newKeyName = ref('')
 const creating = ref(false)
+const authStore = useAuthStore()
 
 async function loadKeys() {
   try {
@@ -59,12 +62,34 @@ function formatDate(date: string | null): string {
   return new Date(date).toLocaleString()
 }
 
-onMounted(loadKeys)
+const refreshingToken = ref(false)
+
+async function refreshShortToken() {
+  if (!confirm('确定要重置短令牌吗？之前的令牌将立即失效。')) return
+  refreshingToken.value = true
+  try {
+    const res = await usersApi.refreshToken()
+    if (authStore.user) {
+      authStore.user.token = res.token
+      localStorage.setItem('user', JSON.stringify(authStore.user))
+    }
+    toast.success('短令牌已重置')
+  } catch (e: any) {
+    toast.error(e.message || '重置失败')
+  } finally {
+    refreshingToken.value = false
+  }
+}
+
+onMounted(() => {
+  loadKeys()
+  authStore.fetchProfile()
+})
 </script>
 
 <template>
   <div class="max-w-2xl mx-auto space-y-6">
-    <h1 class="text-2xl font-bold">API Key 管理</h1>
+    <h1 class="text-2xl font-bold">API Key 与短令牌管理</h1>
 
     <!-- Create new key -->
     <Card>
@@ -86,6 +111,40 @@ onMounted(loadKeys)
               {{ creating ? '创建中...' : '创建' }}
             </Button>
           </div>
+        </div>
+      </CardContent>
+    </Card>
+
+    <!-- Short Token Card -->
+    <Card class="border-emerald-500/20 bg-emerald-500/5">
+      <CardHeader>
+        <CardTitle class="flex items-center justify-between gap-3 text-lg">
+          <div class="flex min-w-0 items-center gap-2 text-emerald-400">
+            <Key class="h-5 w-5 shrink-0" /> 无认证短令牌 (Short Token)
+          </div>
+          <Button variant="outline" size="sm" class="h-8 shrink-0 text-xs border-emerald-500/30 hover:bg-emerald-500/10 text-emerald-400" @click="refreshShortToken" :disabled="refreshingToken">
+            <RefreshCw class="h-3 w-3 mr-1" :class="{ 'animate-spin': refreshingToken }" />
+            重置令牌
+          </Button>
+        </CardTitle>
+        <CardDescription class="text-emerald-500/70">
+          用在公开展示、博客嵌入或前端页面直连场景，让调用链接不必暴露完整 API Key。
+        </CardDescription>
+      </CardHeader>
+      <CardContent class="space-y-4">
+        <div class="rounded-xl border border-emerald-500/15 bg-black/20 p-3 text-sm text-muted-foreground">
+          短令牌只用于便捷读取当前账号下的图片接口，不适合当作管理凭证。它不能替代 API Key 做完整接口调用；如果要上传、AI 生图、管理相册或查看统计，请使用上方创建的 API Key。
+        </div>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between gap-3">
+            <Label class="text-xs text-emerald-300">示例请求</Label>
+            <Button variant="ghost" size="sm" class="h-7 text-xs text-emerald-300" @click="copyKey(`/api/v1/t/${authStore.user?.token || 'xxxxxx'}/images`)">
+              <Copy class="mr-1 h-3 w-3" /> 复制
+            </Button>
+          </div>
+          <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all border border-emerald-500/20 text-emerald-400">
+            GET /api/v1/t/{{ authStore.user?.token || 'xxxxxx' }}/images
+          </code>
         </div>
       </CardContent>
     </Card>
@@ -153,13 +212,8 @@ onMounted(loadKeys)
             GET /api/v1/images?api_key=lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
           </code>
         </div>
-        <div class="space-y-2">
-          <p class="text-sm font-medium">无认证快速拉取/上传（支持 PicGo / ShareX 等）：</p>
-          <code class="block rounded-lg bg-[#0a0a0f] px-3 py-2 text-sm font-mono break-all">
-            POST /api/v1/t/lsky-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx/action
-          </code>
-        </div>
       </CardContent>
     </Card>
+
   </div>
 </template>

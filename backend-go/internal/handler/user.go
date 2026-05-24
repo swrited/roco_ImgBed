@@ -36,11 +36,29 @@ func (h *UserHandler) Profile(c *gin.Context) {
 		"album_num":     user.AlbumNum,
 		"url":           user.URL,
 		"avatar":        user.ToProfile().Avatar,
+		"token":         user.Token,
 		"status":        user.Status,
 		"group_id":      user.GroupID,
 		"configs":       user.Configs,
 		"created_at":    user.CreatedAt,
 	})
+}
+
+func (h *UserHandler) RefreshToken(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var user model.User
+	if err := config.DB.First(&user, userID).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "用户不存在")
+		return
+	}
+	
+	newToken := model.RandomString(6)
+	if err := config.DB.Model(&user).Update("token", newToken).Error; err != nil {
+		model.Fail(c, http.StatusInternalServerError, "刷新失败")
+		return
+	}
+	
+	model.Success(c, "更新成功", gin.H{"token": newToken})
 }
 
 type UpdateProfileInput struct {
