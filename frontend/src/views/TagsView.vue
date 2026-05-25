@@ -17,7 +17,7 @@ async function loadTags() {
   try {
     const res = await tagsApi.list()
     tags.value = res || []
-  } catch (e: any) {
+  } catch {
     toast.error('加载标签失败')
   } finally {
     loading.value = false

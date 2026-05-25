@@ -7,7 +7,7 @@ import {
   Dialog, DialogContent,
 } from '@/components/ui/dialog'
 import { toast } from 'vue-sonner'
-import { Search, ChevronLeft, ChevronRight, X, ExternalLink, Images, Folder, Download, Copy, RefreshCw } from 'lucide-vue-next'
+import { Search, ChevronLeft, ChevronRight, X, Images, Folder, Download } from 'lucide-vue-next'
 import type { Image, Album, PaginatedResponse } from '@/types'
 import { copyToClipboard } from '@/utils/clipboard'
 
@@ -44,7 +44,7 @@ async function loadAlbums(page = 1) {
     currentPage.value = res.current_page || 1
     lastPage.value = res.last_page || 1
     total.value = res.total || 0
-  } catch (e: any) {
+  } catch {
     toast.error('加载画廊失败')
     albums.value = []
   } finally {
@@ -63,7 +63,7 @@ async function loadImages(album: Album, page = 1) {
     currentPage.value = res.current_page || 1
     lastPage.value = res.last_page || 1
     total.value = res.total || 0
-  } catch (e: any) {
+  } catch {
     toast.error('加载图片失败')
     images.value = []
   } finally {
@@ -119,13 +119,6 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'ArrowLeft') prevImage()
   else if (e.key === 'ArrowRight') nextImage()
   else if (e.key === 'Escape') showPreview.value = false
-}
-
-function formatSize(kb: number): string {
-  if (kb <= 0) return '0 KB'
-  if (kb >= 1048576) return (kb / 1048576).toFixed(2) + ' GB'
-  if (kb >= 1024) return (kb / 1024).toFixed(2) + ' MB'
-  return Math.round(kb) + ' KB'
 }
 
 function downloadImage() {

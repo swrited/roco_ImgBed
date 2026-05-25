@@ -20,7 +20,9 @@ func main() {
 
 	addr := fmt.Sprintf(":%s", cfg.AppPort)
 	log.Printf("服务器启动中: http://localhost%s", addr)
-	r.Run(addr)
+	if err := r.Run(addr); err != nil {
+		log.Fatalf("服务器启动失败: %v", err)
+	}
 }
 
 func autoMigrate(db *gorm.DB) {

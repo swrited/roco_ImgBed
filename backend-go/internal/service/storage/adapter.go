@@ -70,11 +70,8 @@ func Factory(strategy *model.Strategy) (Adapter, error) {
 
 // GetStrategyURL 返回策略的访问 URL
 func GetStrategyURL(strategy *model.Strategy) string {
-	url := getString(strategy.Configs, "url", config.Get().AppURL)
+	url := strings.TrimSuffix(getString(strategy.Configs, "url", config.Get().AppURL), "/")
 	queries := getString(strategy.Configs, "queries", "")
-	if strings.HasSuffix(url, "/") {
-		url = url[:len(url)-1]
-	}
 	if queries != "" {
 		if !strings.Contains(url, "?") {
 			url += "?" + queries

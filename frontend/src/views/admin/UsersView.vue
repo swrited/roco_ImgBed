@@ -90,7 +90,7 @@ async function loadUsers(page = 1) {
     total.value = res.total
     currentPage.value = res.current_page
     lastPage.value = res.last_page
-  } catch (e: any) {
+  } catch {
     toast.error('加载用户失败')
   } finally {
     loading.value = false
@@ -168,8 +168,6 @@ async function handleDeleteConfirm() {
 }
 
 // 分页页码计算
-const totalPages = computed(() => lastPage.value)
-
 const visiblePages = computed(() => {
   const pages: (number | 'ellipsis')[] = []
   const current = currentPage.value

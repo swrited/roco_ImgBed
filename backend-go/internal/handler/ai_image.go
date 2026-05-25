@@ -593,7 +593,7 @@ func saveGeneratedImage(c *gin.Context, adapter storage.Adapter, strategy *model
 	}
 
 	if err := config.DB.Select("*").Create(&image).Error; err != nil {
-		adapter.Delete(objectPath)
+		_ = adapter.Delete(objectPath)
 		return model.Image{}, "", fmt.Errorf("数据库保存失败")
 	}
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
@@ -618,26 +618,6 @@ func getOrCreateAIAlbum(userID uint) (*model.Album, error) {
 	}
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("album_num", config.DB.Raw("album_num + 1"))
 	return &album, nil
-}
-
-func resolveDefaultPermission(userID uint) uint {
-	var user model.User
-	if err := config.DB.First(&user, userID).Error; err != nil {
-		return 0
-	}
-	if permVal, ok := user.Configs["default_permission"]; ok {
-		switch v := permVal.(type) {
-		case float64:
-			return uint(v)
-		case int:
-			return uint(v)
-		case int64:
-			return uint(v)
-		case uint:
-			return v
-		}
-	}
-	return 0
 }
 
 func extensionFromMime(mimeType string) string {

@@ -376,7 +376,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	}
 
 	if err := config.DB.Select("*").Create(&image).Error; err != nil {
-		adapter.Delete(objectPath) // 回滚存储
+		_ = adapter.Delete(objectPath) // Best effort rollback after a database failure.
 		model.Fail(c, http.StatusInternalServerError, "数据库保存失败")
 		return
 	}
@@ -392,39 +392,6 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	// 12. 构建响应
 	imageURL := buildImageURL(strategyURL, objectPath)
 	model.Success(c, "上传成功", buildUploadResponse(image, imageURL))
-}
-
-func resolveDefaultAlbumID(userID uint, configs model.JSONMap) *uint {
-	if configs == nil {
-		return nil
-	}
-	raw, ok := configs["default_album_id"]
-	if !ok {
-		return nil
-	}
-	var albumID uint
-	switch v := raw.(type) {
-	case float64:
-		albumID = uint(v)
-	case int:
-		albumID = uint(v)
-	case int64:
-		albumID = uint(v)
-	case uint:
-		albumID = v
-	case string:
-		if parsed, err := strconv.ParseUint(strings.TrimSpace(v), 10, 64); err == nil {
-			albumID = uint(parsed)
-		}
-	}
-	if albumID == 0 {
-		return nil
-	}
-	var album model.Album
-	if err := config.DB.Where("id = ? AND user_id = ?", albumID, userID).First(&album).Error; err != nil {
-		return nil
-	}
-	return &albumID
 }
 
 func resolveRequestedAlbumID(userID uint, value string) *uint {
@@ -651,7 +618,7 @@ func (h *ImageHandler) ForceDeleteTrash(c *gin.Context) {
 			var strategy model.Strategy
 			if err := config.DB.First(&strategy, *img.StrategyID).Error; err == nil {
 				if adapter, err := storage.Factory(&strategy); err == nil {
-					adapter.Delete(img.Pathname())
+					_ = adapter.Delete(img.Pathname())
 				}
 			}
 		}
@@ -748,7 +715,10 @@ func (h *ImageHandler) UpdateTags(c *gin.Context) {
 		}
 	}
 
-	config.DB.Model(&image).Association("Tags").Replace(newTags)
+	if err := config.DB.Model(&image).Association("Tags").Replace(newTags); err != nil {
+		model.Fail(c, http.StatusInternalServerError, "标签更新失败")
+		return
+	}
 
 	model.Success(c, "更新成功", nil)
 }

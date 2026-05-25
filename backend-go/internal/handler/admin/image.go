@@ -40,7 +40,7 @@ func (h *ImageHandler) List(c *gin.Context) {
 	}
 
 	query.Count(&total)
-	query.Offset((page-1)*perPage).Limit(perPage).Order("id DESC").Preload("User").Find(&images)
+	query.Offset((page - 1) * perPage).Limit(perPage).Order("id DESC").Preload("User").Find(&images)
 
 	imageDTOs := buildImageDTOs(images)
 
@@ -71,7 +71,7 @@ func (h *ImageHandler) Delete(c *gin.Context) {
 			var strategy model.Strategy
 			if err := config.DB.First(&strategy, *img.StrategyID).Error; err == nil {
 				if adapter, err := storage.Factory(&strategy); err == nil {
-					adapter.Delete(img.Pathname())
+					_ = adapter.Delete(img.Pathname())
 				}
 			}
 		}

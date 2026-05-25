@@ -51,13 +51,13 @@ func (h *UserHandler) RefreshToken(c *gin.Context) {
 		model.Fail(c, http.StatusNotFound, "用户不存在")
 		return
 	}
-	
+
 	newToken := model.RandomString(6)
 	if err := config.DB.Model(&user).Update("token", newToken).Error; err != nil {
 		model.Fail(c, http.StatusInternalServerError, "刷新失败")
 		return
 	}
-	
+
 	model.Success(c, "更新成功", gin.H{"token": newToken})
 }
 
@@ -155,7 +155,9 @@ func (h *UserHandler) Dashboard(c *gin.Context) {
 		dbStats := make(map[string]int64)
 		for rows.Next() {
 			var r row
-			config.DB.ScanRows(rows, &r)
+			if err := config.DB.ScanRows(rows, &r); err != nil {
+				continue
+			}
 			dbStats[r.Date] = r.Count
 		}
 		for i := 0; i < 30; i++ {

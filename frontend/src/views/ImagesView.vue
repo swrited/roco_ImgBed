@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
-import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Link2, Check, Download, X, Hash, ArrowLeft, Plus, Lock, Globe2, Info } from 'lucide-vue-next'
+import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Link2, Check, Download, X, Hash, ArrowLeft, Plus, Info } from 'lucide-vue-next'
 import type { Album, Image, Tag } from '@/types'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -53,7 +53,6 @@ const previewImage = ref<Image | null>(null)
 const renameKey = ref('')
 const renameName = ref('')
 const editingKey = ref('')
-const editingName = ref('')
 const editingTags = ref<string[]>([])
 const newTagInput = ref('')
 const isEditingPreviewTags = ref(false)
@@ -242,18 +241,6 @@ async function handleRename() {
     if (previewImage.value?.key === renameKey.value) {
       previewImage.value.alias_name = renameName.value.trim()
     }
-    loadImages(currentPage.value)
-  } catch (e: any) {
-    toast.error(e.message || '重命名失败')
-  }
-}
-
-async function renameImages() {
-  if (!editingKey.value || !editingName.value.trim()) return
-  try {
-    await imagesApi.rename(editingKey.value, editingName.value)
-    toast.success('重命名成功')
-    showRenameDialog.value = false
     loadImages(currentPage.value)
   } catch (e: any) {
     toast.error(e.message || '重命名失败')

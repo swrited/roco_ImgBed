@@ -146,7 +146,7 @@ async function loadStrategies() {
   try {
     const res = await adminApi.listStrategies()
     strategies.value = res
-  } catch (e: any) {
+  } catch {
     toast.error('加载策略失败')
   } finally {
     loading.value = false

@@ -12,7 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'vue-sonner'
-import { UserCog, Key, HardDrive, EyeOff, FolderOpen, LogOut } from 'lucide-vue-next'
+import { UserCog, Key, HardDrive, FolderOpen, LogOut } from 'lucide-vue-next'
 import type { Album } from '@/types'
 
 const auth = useAuthStore()

@@ -178,7 +178,7 @@ async function saveRules() {
   if (!rulesGroup.value) return
   savingRules.value = true
   try {
-    const configs: Record<string, any> = { ...(rulesGroup.value.configs || {}) }
+    const configs: Record<string, any> = { ...rulesGroup.value.configs }
     if (rulesCapacity.value) {
       configs.capacity = Number(rulesCapacity.value)
     } else {

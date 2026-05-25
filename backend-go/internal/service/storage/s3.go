@@ -19,17 +19,9 @@ type S3Adapter struct {
 }
 
 func NewS3Adapter(accessKey, secretKey, region, bucket, endpoint, publicURL string) *S3Adapter {
-	customResolver := aws.EndpointResolverWithOptionsFunc(func(service, region string, options ...interface{}) (aws.Endpoint, error) {
-		if endpoint != "" {
-			return aws.Endpoint{URL: endpoint, SigningRegion: region}, nil
-		}
-		return aws.Endpoint{}, &aws.EndpointNotFoundError{}
-	})
-
 	cfg, err := config.LoadDefaultConfig(context.Background(),
 		config.WithRegion(region),
 		config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(accessKey, secretKey, "")),
-		config.WithEndpointResolverWithOptions(customResolver),
 	)
 
 	if err != nil {
@@ -38,6 +30,7 @@ func NewS3Adapter(accessKey, secretKey, region, bucket, endpoint, publicURL stri
 
 	client := s3.NewFromConfig(cfg, func(o *s3.Options) {
 		if endpoint != "" {
+			o.BaseEndpoint = aws.String(endpoint)
 			o.UsePathStyle = true
 		}
 	})

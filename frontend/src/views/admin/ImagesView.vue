@@ -66,10 +66,6 @@ const allSelected = computed(() => {
   return images.value.length > 0 && images.value.every((img) => selectedKeys.value.has(img.key))
 })
 
-const someSelected = computed(() => {
-  return images.value.some((img) => selectedKeys.value.has(img.key)) && !allSelected.value
-})
-
 const selectedCount = computed(() => selectedKeys.value.size)
 
 const hasPrev = computed(() => currentPage.value > 1)

@@ -4,7 +4,7 @@ import { usersApi, type DashboardData } from '@/api/users'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import SparkLine from '@/components/SparkLine.vue'
-import { Upload, Image, FolderOpen, HardDrive, TrendingUp, CalendarDays } from 'lucide-vue-next'
+import { Image, FolderOpen, HardDrive, TrendingUp, CalendarDays } from 'lucide-vue-next'
 
 const data = ref<DashboardData>({
   user: { id: 0, name: '', email: '', image_num: 0, album_num: 0, capacity: 0, is_adminer: false, group_id: 0, created_at: '' },
