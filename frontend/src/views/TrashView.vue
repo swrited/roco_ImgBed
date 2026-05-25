@@ -28,7 +28,7 @@ async function loadImages(page = 1) {
   loading.value = true
   try {
     const res = await imagesApi.getTrash({ page }) as any
-    images.value = res.data
+    images.value = res.data || []
     total.value = res.total
     currentPage.value = res.current_page
     lastPage.value = res.last_page
