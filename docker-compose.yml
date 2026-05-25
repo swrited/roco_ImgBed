@@ -1,9 +1,12 @@
+# Development Docker Compose
+# For production deployment, use docker-compose.prod.yml
+
 version: '3.8'
 
 services:
   backend:
     image: debian:bookworm-slim
-    container_name: roco-backend
+    container_name: imgbed-backend-dev
     restart: unless-stopped
     working_dir: /data
     volumes:
@@ -11,13 +14,19 @@ services:
       - /etc/ssl/certs:/etc/ssl/certs:ro
     environment:
       SSL_CERT_DIR: /etc/ssl/certs
+      DB_CONNECTION: sqlite
+      APP_PORT: 8000
+      APP_URL: http://localhost:8000
+      JWT_SECRET: dev-secret-change-me
     command: ["/data/server"]
     networks:
-      - roco-net
+      - imgbed-net
+    ports:
+      - "8000:8000"
 
   nginx:
     image: nginx:alpine
-    container_name: roco-nginx
+    container_name: imgbed-nginx-dev
     restart: unless-stopped
     ports:
       - "3000:80"
@@ -26,10 +35,10 @@ services:
       - ./backend-go/uploads:/data/uploads:ro
       - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      - roco-net
+      - imgbed-net
     depends_on:
       - backend
 
 networks:
-  roco-net:
+  imgbed-net:
     driver: bridge

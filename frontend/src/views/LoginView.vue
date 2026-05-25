@@ -52,7 +52,7 @@ async function handleLogin() {
       />
       <div class="absolute inset-0 bg-black/50" />
       <div class="absolute bottom-10 left-10 max-w-md text-white">
-        <img src="/roco-wordmark.svg" alt="洛克图床" class="mb-4 h-16 w-44 object-contain object-left" />
+        <img src="/roco-wordmark.svg" alt="星诺图床" class="mb-4 h-16 w-44 object-contain object-left" />
         <h1 class="text-4xl font-semibold leading-tight">把图片资产管理变成一个安静、高效的工作流。</h1>
       </div>
     </section>
@@ -65,7 +65,7 @@ async function handleLogin() {
         </Button>
         <Card>
           <CardHeader>
-            <img src="/roco-logo.svg" alt="洛克图床" class="mb-2 h-12 w-12 rounded-2xl object-contain" />
+            <img src="/roco-logo.svg" alt="星诺图床" class="mb-2 h-12 w-12 rounded-2xl object-contain" />
             <CardTitle class="text-2xl">登录账户</CardTitle>
             <CardDescription>进入控制台管理图片、相册和存储策略</CardDescription>
           </CardHeader>

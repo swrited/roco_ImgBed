@@ -104,7 +104,7 @@ func ensureDefaultConfigs(db *gorm.DB) {
 
 func defaultSystemConfigs() []model.SystemConfig {
 	return []model.SystemConfig{
-		{Name: "app_name", Value: "洛克图床"},
+		{Name: "app_name", Value: "星诺图床"},
 		{Name: "app_version", Value: "V 2.1"},
 		{Name: "site_description", Value: ""},
 		{Name: "site_keywords", Value: ""},
@@ -126,5 +126,7 @@ func defaultSystemConfigs() []model.SystemConfig {
 		{Name: "api_key_minute_limit", Value: "60"},
 		{Name: "api_key_daily_limit", Value: "1000"},
 		{Name: "mail", Value: "{}"},
+		{Name: "site_bg_image", Value: ""},
+		{Name: "site_bg_opacity", Value: "85"},
 	}
 }

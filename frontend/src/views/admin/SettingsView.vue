@@ -1,6 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { adminApi } from '@/api/admin'
+import { settingsApi } from '@/api/settings'
+import { useSettingsStore } from '@/stores/settings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,8 +13,10 @@ import {
 } from '@/components/ui/select'
 import ConfirmDialog from '@/components/ConfirmDialog.vue'
 import { toast } from 'vue-sonner'
-import { Save, Mail, RefreshCw, ArrowUp, HardDrive, WandSparkles } from 'lucide-vue-next'
+import { Save, Mail, RefreshCw, ArrowUp, HardDrive, WandSparkles, ImageIcon, Upload, Trash2 } from 'lucide-vue-next'
 import type { Strategy } from '@/types'
+
+const settingsStore = useSettingsStore()
 
 const settings = ref<Record<string, any>>({})
 const strategies = ref<Strategy[]>([])
@@ -23,6 +27,14 @@ const upgrading = ref(false)
 const upgradeInfo = ref<string | null>(null)
 const upgradeDialogOpen = ref(false)
 const saveDialogOpen = ref(false)
+const uploadingBg = ref(false)
+const bgFileInput = ref<HTMLInputElement | null>(null)
+
+const bgPreview = computed(() => settings.value.site_bg_image || '')
+const bgOpacityValue = computed({
+  get: () => parseInt(settings.value.site_bg_opacity || '85', 10),
+  set: (v: number) => { settings.value.site_bg_opacity = String(v) },
+})
 
 const BOOL_KEYS = ['is_enable_registration', 'is_enable_guest_upload', 'is_enable_gallery', 'is_enable_api', 'is_enable_ai_image']
 
@@ -52,6 +64,8 @@ function normalizeSettings(raw: Record<string, any>): Record<string, any> {
   s.api_key_minute_limit = s.api_key_minute_limit || '60'
   s.api_key_daily_limit = s.api_key_daily_limit || '1000'
   s.upload_max_size = s.upload_max_size || '10240'
+  s.site_bg_image = s.site_bg_image || ''
+  s.site_bg_opacity = s.site_bg_opacity || '85'
   return s
 }
 
@@ -84,6 +98,8 @@ function confirmSave() {
 async function handleSaveConfirm() {
   try {
     await adminApi.updateSettings(denormalizeSettings(settings.value))
+    // 同步刷新全局背景设置
+    await settingsStore.fetchPublicSettings()
     toast.success('保存成功')
   } catch (e: any) {
     toast.error(e.message || '保存失败')
@@ -138,6 +154,41 @@ async function handleUpgradeConfirm() {
   }
 }
 
+function triggerBgUpload() {
+  bgFileInput.value?.click()
+}
+
+async function handleBgFileChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  uploadingBg.value = true
+  try {
+    const res = await settingsApi.uploadBgImage(file)
+    settings.value.site_bg_image = res.url
+    // 立即保存设置并刷新全局背景
+    await adminApi.updateSettings(denormalizeSettings(settings.value))
+    await settingsStore.fetchPublicSettings()
+    toast.success('背景图片已更新')
+  } catch (e: any) {
+    toast.error(e.message || '上传失败')
+  } finally {
+    uploadingBg.value = false
+    input.value = '' // reset file input
+  }
+}
+
+async function clearBgImage() {
+  settings.value.site_bg_image = ''
+  try {
+    await adminApi.updateSettings(denormalizeSettings(settings.value))
+    await settingsStore.fetchPublicSettings()
+    toast.success('背景图片已清除')
+  } catch (e: any) {
+    toast.error(e.message || '清除失败')
+  }
+}
+
 onMounted(loadSettings)
 </script>
 
@@ -148,6 +199,83 @@ onMounted(loadSettings)
     </div>
 
     <div class="space-y-6">
+      <!-- 外观设置 -->
+      <Card>
+        <CardHeader>
+          <CardTitle class="flex items-center gap-2">
+            <ImageIcon class="h-5 w-5 text-violet-400" />
+            外观设置
+          </CardTitle>
+          <CardDescription>配置网站背景图片和视觉效果</CardDescription>
+        </CardHeader>
+        <CardContent class="space-y-5">
+          <!-- 背景预览 -->
+          <div
+            class="relative h-40 overflow-hidden rounded-2xl border border-white/10 bg-black/20"
+            :style="bgPreview ? { backgroundImage: `url(${bgPreview})`, backgroundSize: 'cover', backgroundPosition: 'center' } : {}"
+          >
+            <div
+              v-if="bgPreview"
+              class="absolute inset-0"
+              :style="{ background: 'oklch(8% 0.01 270)', opacity: bgOpacityValue / 100 }"
+            />
+            <div class="absolute inset-0 flex items-center justify-center">
+              <p v-if="!bgPreview" class="text-sm text-muted-foreground">暂无背景图片</p>
+              <p v-else class="relative z-10 text-sm font-medium text-white/80">背景预览（含遮罩效果）</p>
+            </div>
+          </div>
+
+          <!-- 上传 / URL 输入 -->
+          <div class="flex flex-wrap gap-2">
+            <input
+              ref="bgFileInput"
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="handleBgFileChange"
+            />
+            <Button variant="outline" :disabled="uploadingBg" @click="triggerBgUpload">
+              <Upload class="mr-2 h-4 w-4" />
+              {{ uploadingBg ? '上传中...' : '上传图片' }}
+            </Button>
+            <Button v-if="bgPreview" variant="outline" class="text-red-400 hover:text-red-300 border-red-500/20 hover:border-red-500/40" @click="clearBgImage">
+              <Trash2 class="mr-2 h-4 w-4" />
+              清除背景
+            </Button>
+          </div>
+
+          <div class="space-y-2">
+            <Label>外部图片 URL（可替代上传）</Label>
+            <Input v-model="settings.site_bg_image" placeholder="https://example.com/background.jpg" />
+            <p class="text-xs text-muted-foreground">填入外部图片 URL 或通过上方按钮上传，留空则使用默认纯色背景。</p>
+          </div>
+
+          <!-- 遮罩透明度 -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <Label>遮罩透明度</Label>
+              <span class="text-xs tabular-nums text-muted-foreground">{{ bgOpacityValue }}%</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              :value="bgOpacityValue"
+              class="w-full h-2 rounded-full appearance-none cursor-pointer"
+              style="background: linear-gradient(90deg, transparent, oklch(8% 0.01 270));"
+              @input="bgOpacityValue = Number(($event.target as HTMLInputElement).value)"
+            />
+            <p class="text-xs text-muted-foreground">
+              值越高遮罩越深、内容越清晰。0% = 无遮罩（纯背景图），100% = 完全遮挡。
+            </p>
+          </div>
+
+          <Button variant="outline" class="mt-2" @click="confirmSave">
+            <Save class="mr-2 h-4 w-4" /> 保存设置
+          </Button>
+        </CardContent>
+      </Card>
+
       <!-- 基本设置 -->
       <Card>
         <CardHeader>
@@ -157,7 +285,7 @@ onMounted(loadSettings)
         <CardContent class="space-y-4">
           <div class="space-y-2">
             <Label>站点名称</Label>
-            <Input v-model="settings.name" placeholder="洛克图床" />
+            <Input v-model="settings.name" placeholder="星诺图床" />
           </div>
           <div class="space-y-2">
             <Label>站点描述</Label>

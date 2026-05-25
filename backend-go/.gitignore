@@ -1,2 +1,32 @@
+# Compiled binary
+server
+server.exe
 server_mac
+
+# Logs
 server.log
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads directory (keep structure with .gitkeep)
+uploads/*
+!uploads/.gitkeep
+
+# Environment
+.env
+.env.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

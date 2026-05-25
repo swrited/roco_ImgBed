@@ -1,0 +1,73 @@
+# Production Docker Compose
+# Data is persisted via Docker named volumes.
+# Ensure JWT_SECRET is set in your environment before deploying.
+
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend-go
+      dockerfile: Dockerfile
+    container_name: imgbed-backend
+    restart: unless-stopped
+    environment:
+      DB_CONNECTION: ${DB_CONNECTION:-sqlite}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USERNAME: ${DB_USERNAME:-imgbed}
+      DB_PASSWORD: ${DB_PASSWORD:-imgbed}
+      DB_DATABASE: ${DB_DATABASE:-imgbed}
+      APP_PORT: 8000
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET}
+    volumes:
+      - uploads:/app/uploads
+      - db_data:/app/db
+    networks:
+      - imgbed-net
+    depends_on:
+      - db
+
+  nginx:
+    image: nginx:alpine
+    container_name: imgbed-nginx
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - uploads:/data/uploads:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - imgbed-net
+    depends_on:
+      - backend
+
+  db:
+    image: mysql:8.0
+    container_name: imgbed-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${DB_DATABASE:-imgbed}
+      MYSQL_USER: ${DB_USERNAME:-imgbed}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-imgbed}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - imgbed-net
+    profiles:
+      - mysql
+
+volumes:
+  uploads:
+    driver: local
+  db_data:
+    driver: local
+  mysql_data:
+    driver: local
+
+networks:
+  imgbed-net:
+    driver: bridge
