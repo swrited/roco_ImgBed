@@ -104,7 +104,7 @@ func ensureDefaultConfigs(db *gorm.DB) {
 
 func defaultSystemConfigs() []model.SystemConfig {
 	return []model.SystemConfig{
-		{Name: "app_name", Value: "星诺图床"},
+		{Name: "app_name", Value: "星诺图库"},
 		{Name: "app_version", Value: "V 2.1"},
 		{Name: "site_description", Value: ""},
 		{Name: "site_keywords", Value: ""},
@@ -117,9 +117,19 @@ func defaultSystemConfigs() []model.SystemConfig {
 		{Name: "upload_max_size", Value: "10240"},
 		{Name: "default_strategy_id", Value: ""},
 		{Name: "is_enable_ai_image", Value: "0"},
+		{Name: "ai_image_provider", Value: "minimax"},
 		{Name: "minimax_api_key", Value: ""},
 		{Name: "minimax_api_endpoint", Value: "https://api.minimaxi.com/v1/image_generation"},
 		{Name: "minimax_model", Value: "image-01"},
+		{Name: "openai_image_api_key", Value: ""},
+		{Name: "openai_image_api_endpoint", Value: "https://api.openai.com/v1/images/generations"},
+		{Name: "openai_image_model", Value: "gpt-image-1.5"},
+		{Name: "siliconflow_image_api_key", Value: ""},
+		{Name: "siliconflow_image_api_endpoint", Value: "https://api.siliconflow.cn/v1/images/generations"},
+		{Name: "siliconflow_image_model", Value: "Kwai-Kolors/Kolors"},
+		{Name: "compatible_image_api_key", Value: ""},
+		{Name: "compatible_image_api_endpoint", Value: ""},
+		{Name: "compatible_image_model", Value: ""},
 		{Name: "ai_image_max_count", Value: "4"},
 		{Name: "ai_image_rate_limit_seconds", Value: "30"},
 		{Name: "ai_image_daily_limit", Value: "10"},

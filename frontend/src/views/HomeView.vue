@@ -38,11 +38,11 @@ const featureColors: Record<string, string> = {
     <header class="relative z-10 mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-5 lg:px-8">
       <router-link to="/" class="flex items-center gap-3 font-semibold">
         <img
-          src="/roco-logo.svg"
-          alt="星诺图床"
-          class="h-10 w-10 rounded-xl object-contain shadow-lg shadow-purple-500/20"
+          src="/xinnuo-logo.svg"
+          alt="星诺图库"
+          class="h-[60px] w-[60px] rounded-xl object-contain shadow-lg shadow-purple-500/20"
         />
-        <img src="/roco-wordmark.svg" alt="星诺图床" class="h-11 w-32 object-contain object-left" />
+        <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-14 w-40 object-contain object-left" />
       </router-link>
       <div class="flex items-center gap-2">
         <Button variant="ghost" @click="router.push('/gallery')">画廊</Button>

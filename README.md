@@ -1,11 +1,11 @@
 <p align="center">
   <a href="#" target="_blank">
-    <img src="frontend/public/roco-logo.svg" width="120" alt="星诺图床">
+    <img src="frontend/public/xinnuo-logo.svg" width="120" alt="星诺图库">
   </a>
 </p>
 
 <p align="center">
-  <img src="frontend/public/roco-wordmark.svg" width="180" alt="星诺图床">
+  <img src="frontend/public/xinnuo-wordmark.svg" width="180" alt="星诺图库">
 </p>
 
 <p align="center">
@@ -32,14 +32,14 @@
 
 ---
 
-## 为什么选择星诺图床
+## 为什么选择星诺图库
 
-市面上图床方案众多，但我们认为一个好的图床系统应该具备三个特质：**优雅易用**、**存储自由**、**可扩展**。星诺图床从设计之初就围绕这三点构建 —— 无论是个人开发者托管博客图片，还是团队共享设计素材，它都能提供流畅的体验。
+市面上图床方案众多，但我们认为一个好的图库系统应该具备三个特质：**优雅易用**、**存储自由**、**可扩展**。星诺图库从设计之初就围绕这三点构建 —— 无论是个人开发者托管博客图片，还是团队共享设计素材，它都能提供流畅的体验。
 
 - **零配置起步**：内置 SQLite，一条命令即可运行
 - **存储策略自由**：本地磁盘、阿里云 OSS、腾讯云 COS、AWS S3、MinIO、WebDAV 一键切换
 - **API 优先**：完整的 REST API + API Key 体系，轻松接入脚本、自动化工具或第三方应用
-- **AI 增强**：集成 MiniMax 图片生成，将 AI 创作直接存入图库
+- **AI 增强**：支持 MiniMax、OpenAI、SiliconFlow 与兼容图片接口，将 AI 创作直接存入图库
 
 ## 功能特性
 
@@ -61,7 +61,7 @@
     </td>
     <td>
       <h4>🎨 AI 图片生成</h4>
-      <p>接入 MiniMax 文生图，在控制台内直接生成图片并自动归档，创作即存储。</p>
+      <p>接入 MiniMax、OpenAI、SiliconFlow 或兼容接口，在控制台内直接生成图片并自动归档。</p>
     </td>
   </tr>
   <tr>

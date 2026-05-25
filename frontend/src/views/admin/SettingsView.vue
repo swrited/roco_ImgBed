@@ -56,8 +56,13 @@ function normalizeSettings(raw: Record<string, any>): Record<string, any> {
   delete s.user_capacity
   s.default_strategy_id = s.default_strategy_id ? String(s.default_strategy_id) : '__auto__'
   s.is_enable_ai_image = strToBool(s.is_enable_ai_image ?? false)
+  s.ai_image_provider = s.ai_image_provider || 'minimax'
   s.minimax_api_endpoint = s.minimax_api_endpoint || 'https://api.minimaxi.com/v1/image_generation'
   s.minimax_model = s.minimax_model || 'image-01'
+  s.openai_image_api_endpoint = s.openai_image_api_endpoint || 'https://api.openai.com/v1/images/generations'
+  s.openai_image_model = s.openai_image_model || 'gpt-image-1.5'
+  s.siliconflow_image_api_endpoint = s.siliconflow_image_api_endpoint || 'https://api.siliconflow.cn/v1/images/generations'
+  s.siliconflow_image_model = s.siliconflow_image_model || 'Kwai-Kolors/Kolors'
   s.ai_image_max_count = s.ai_image_max_count || '4'
   s.ai_image_rate_limit_seconds = s.ai_image_rate_limit_seconds || '30'
   s.ai_image_daily_limit = s.ai_image_daily_limit || '10'
@@ -285,7 +290,7 @@ onMounted(loadSettings)
         <CardContent class="space-y-4">
           <div class="space-y-2">
             <Label>站点名称</Label>
-            <Input v-model="settings.name" placeholder="星诺图床" />
+            <Input v-model="settings.name" placeholder="星诺图库" />
           </div>
           <div class="space-y-2">
             <Label>站点描述</Label>
@@ -401,29 +406,95 @@ onMounted(loadSettings)
             <WandSparkles class="h-5 w-5 text-purple-400" />
             AI 生图
           </CardTitle>
-          <CardDescription>配置 MiniMax 图片生成服务，普通用户不会看到 API Key。</CardDescription>
+          <CardDescription>选择图片生成渠道并配置凭据，普通用户不会看到 API Key。</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
           <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">启用 AI 生图</Label>
-              <p class="text-xs text-muted-foreground">启用后，用户可以调用 MiniMax 生成并保存图片</p>
+              <p class="text-xs text-muted-foreground">启用后，用户可以通过当前渠道生成并自动保存图片</p>
             </div>
             <Switch v-model="settings.is_enable_ai_image" />
           </div>
           <div class="space-y-2">
-            <Label>MiniMax API Key</Label>
-            <Input v-model="settings.minimax_api_key" type="password" placeholder="填入 MiniMax 开放平台 API Key" />
+            <Label>生图渠道</Label>
+            <Select v-model="settings.ai_image_provider">
+              <SelectTrigger class="w-full">
+                <SelectValue placeholder="选择生图渠道" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="minimax">MiniMax</SelectItem>
+                <SelectItem value="openai">OpenAI GPT Image</SelectItem>
+                <SelectItem value="siliconflow">SiliconFlow</SelectItem>
+                <SelectItem value="compatible">OpenAI 兼容接口</SelectItem>
+              </SelectContent>
+            </Select>
+            <p class="text-xs text-muted-foreground">切换渠道不会清空已保存的其他渠道配置。</p>
           </div>
-          <div class="space-y-2">
-            <Label>接口地址</Label>
-            <Input v-model="settings.minimax_api_endpoint" placeholder="https://api.minimaxi.com/v1/image_generation" />
-          </div>
-          <div class="grid gap-4 sm:grid-cols-2">
+
+          <div v-if="settings.ai_image_provider === 'minimax'" class="space-y-4 rounded-xl border border-white/5 p-4">
             <div class="space-y-2">
-              <Label>模型</Label>
+              <Label>MiniMax API Key</Label>
+              <Input v-model="settings.minimax_api_key" type="password" placeholder="填入 MiniMax 开放平台 API Key" />
+            </div>
+            <div class="space-y-2">
+              <Label>MiniMax 接口地址</Label>
+              <Input v-model="settings.minimax_api_endpoint" placeholder="https://api.minimaxi.com/v1/image_generation" />
+            </div>
+            <div class="space-y-2">
+              <Label>MiniMax 模型</Label>
               <Input v-model="settings.minimax_model" placeholder="image-01" />
             </div>
+          </div>
+
+          <div v-else-if="settings.ai_image_provider === 'openai'" class="space-y-4 rounded-xl border border-white/5 p-4">
+            <div class="space-y-2">
+              <Label>OpenAI API Key</Label>
+              <Input v-model="settings.openai_image_api_key" type="password" placeholder="填入 OpenAI API Key" />
+            </div>
+            <div class="space-y-2">
+              <Label>OpenAI 接口地址</Label>
+              <Input v-model="settings.openai_image_api_endpoint" placeholder="https://api.openai.com/v1/images/generations" />
+            </div>
+            <div class="space-y-2">
+              <Label>OpenAI 模型</Label>
+              <Input v-model="settings.openai_image_model" placeholder="gpt-image-1.5" />
+            </div>
+            <p class="text-xs text-muted-foreground">不同画幅将映射到 GPT Image 支持的横版、竖版或正方形尺寸。</p>
+          </div>
+
+          <div v-else-if="settings.ai_image_provider === 'siliconflow'" class="space-y-4 rounded-xl border border-white/5 p-4">
+            <div class="space-y-2">
+              <Label>SiliconFlow API Key</Label>
+              <Input v-model="settings.siliconflow_image_api_key" type="password" placeholder="填入 SiliconFlow API Key" />
+            </div>
+            <div class="space-y-2">
+              <Label>SiliconFlow 接口地址</Label>
+              <Input v-model="settings.siliconflow_image_api_endpoint" placeholder="https://api.siliconflow.cn/v1/images/generations" />
+            </div>
+            <div class="space-y-2">
+              <Label>SiliconFlow 模型</Label>
+              <Input v-model="settings.siliconflow_image_model" placeholder="Kwai-Kolors/Kolors" />
+            </div>
+          </div>
+
+          <div v-else class="space-y-4 rounded-xl border border-white/5 p-4">
+            <div class="space-y-2">
+              <Label>兼容接口 API Key</Label>
+              <Input v-model="settings.compatible_image_api_key" type="password" placeholder="填入服务商 API Key" />
+            </div>
+            <div class="space-y-2">
+              <Label>兼容接口地址</Label>
+              <Input v-model="settings.compatible_image_api_endpoint" placeholder="https://provider.example.com/v1/images/generations" />
+            </div>
+            <div class="space-y-2">
+              <Label>模型</Label>
+              <Input v-model="settings.compatible_image_model" placeholder="服务商提供的图片模型 ID" />
+            </div>
+            <p class="text-xs text-muted-foreground">适用于返回 `data[].b64_json` 或 `data[].url` 的 OpenAI 风格图片生成接口。</p>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-2">
             <div class="space-y-2">
               <Label>单次最大生成数量</Label>
               <Input v-model="settings.ai_image_max_count" type="number" min="1" max="9" placeholder="4" />

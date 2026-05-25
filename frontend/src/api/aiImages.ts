@@ -8,6 +8,7 @@ export interface AIImageGeneratePayload {
 }
 
 export interface AIImageGenerateResponse {
+  provider?: string
   album: {
     id: number
     name: string

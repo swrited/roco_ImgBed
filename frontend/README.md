@@ -1,4 +1,4 @@
-# 星诺图床 — 前端
+# 星诺图库 - 前端
 
 基于 Vue 3 + TypeScript + Tailwind CSS 构建的图床管理界面。
 
@@ -62,7 +62,7 @@ npm run format
 | 变量 | 说明 | 默认值 |
 |------|------|--------|
 | `VITE_API_BASE_URL` | 后端 API 地址 | `http://localhost:8000/api/v1` |
-| `VITE_APP_TITLE` | 应用标题 | `星诺图床` |
+| `VITE_APP_TITLE` | 应用标题 | `星诺图库` |
 
 复制 `.env.example` 为 `.env.local` 进行本地配置。
 

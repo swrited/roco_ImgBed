@@ -9,6 +9,7 @@ interface PublicSettings {
   is_enable_gallery?: string
   is_enable_api?: string
   is_enable_ai_image?: string
+  ai_image_provider?: string
   site_bg_image?: string
   site_bg_opacity?: string
   [key: string]: unknown

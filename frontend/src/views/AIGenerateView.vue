@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { aiImagesApi } from '@/api/aiImages'
+import { settingsApi } from '@/api/settings'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
@@ -27,9 +28,16 @@ const cooldownRemaining = ref(0)
 const generated = ref<any[]>([])
 const album = ref<{ id: number; name: string } | null>(null)
 const quota = ref<{ limit: number; used: number; remaining: number } | null>(null)
+const provider = ref('minimax')
 let cooldownTimer: number | undefined
 
 const canGenerate = computed(() => prompt.value.trim().length > 0 && !loading.value && cooldownRemaining.value === 0)
+const providerLabel = computed(() => ({
+  minimax: 'MiniMax image-01',
+  openai: 'OpenAI GPT Image',
+  siliconflow: 'SiliconFlow',
+  compatible: '兼容图片模型',
+}[provider.value] || 'AI 图片生成'))
 
 const ratioOptions = [
   { value: '1:1', label: '1:1 正方形', size: '1024 x 1024' },
@@ -57,11 +65,12 @@ async function generateImages() {
       prompt: prompt.value.trim(),
       aspect_ratio: aspectRatio.value,
       count: Number(count.value) || 1,
-      prompt_optimizer: promptOptimizer.value,
+      prompt_optimizer: provider.value === 'minimax' && promptOptimizer.value,
     })
     generated.value = res.images || []
     album.value = res.album || null
     quota.value = res.quota || null
+    provider.value = res.provider || provider.value
     toast.success(`已生成 ${generated.value.length} 张图片`)
     startCooldown(5)
   } catch (e: any) {
@@ -94,6 +103,13 @@ function openAlbum() {
   if (!album.value?.id) return
   router.push({ name: 'library.images', query: { album_id: album.value.id } })
 }
+
+onMounted(async () => {
+  try {
+    const settings = await settingsApi.getPublicSettings()
+    provider.value = String(settings.ai_image_provider || 'minimax')
+  } catch { /* keep the default provider label */ }
+})
 </script>
 
 <template>
@@ -102,7 +118,7 @@ function openAlbum() {
       <div>
         <div class="mb-2 flex items-center gap-2">
           <Badge class="border-purple-500/20 bg-purple-500/10 text-purple-300 hover:bg-purple-500/10">
-            MiniMax image-01
+            {{ providerLabel }}
           </Badge>
         </div>
         <h1 class="text-2xl font-bold">AI 生图</h1>
@@ -122,7 +138,7 @@ function openAlbum() {
             生成参数
           </CardTitle>
           <CardDescription>
-            生成会消耗 MiniMax 额度，保存时使用你的默认存储策略。
+            生成会消耗当前渠道额度，保存时使用你的默认存储策略。
             <span v-if="quota" class="mt-1 block text-purple-300">
               今日已用 {{ quota.used }} / {{ quota.limit || '不限' }} 次<span v-if="quota.remaining >= 0">，剩余 {{ quota.remaining }} 次</span>
             </span>
@@ -161,7 +177,7 @@ function openAlbum() {
             </div>
           </div>
 
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div v-if="provider === 'minimax'" class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">提示词优化</Label>
               <p class="text-xs text-muted-foreground">让 MiniMax 自动增强提示词细节</p>

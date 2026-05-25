@@ -47,6 +47,23 @@ type minimaxImageResponse struct {
 	} `json:"base_resp"`
 }
 
+type openAIImageResponse struct {
+	Data []struct {
+		Base64 string `json:"b64_json"`
+		URL    string `json:"url"`
+	} `json:"data"`
+	Error struct {
+		Message string `json:"message"`
+	} `json:"error"`
+}
+
+type siliconFlowImageResponse struct {
+	Images []struct {
+		URL string `json:"url"`
+	} `json:"images"`
+	Message string `json:"message"`
+}
+
 var allowedAIAspectRatios = map[string]bool{
 	"1:1": true, "16:9": true, "4:3": true, "3:2": true,
 	"2:3": true, "3:4": true, "9:16": true, "21:9": true,
@@ -66,12 +83,10 @@ func (h *AIImageHandler) Generate(c *gin.Context) {
 		return
 	}
 
-	apiKey := strings.TrimSpace(systemConfigString("minimax_api_key", ""))
+	provider := aiImageProvider()
+	apiKey := aiImageProviderAPIKey(provider)
 	if apiKey == "" {
-		apiKey = strings.TrimSpace(os.Getenv("MINIMAX_API_KEY"))
-	}
-	if apiKey == "" {
-		model.Fail(c, http.StatusUnprocessableEntity, "MiniMax API Key 未配置")
+		model.Fail(c, http.StatusUnprocessableEntity, aiImageProviderName(provider)+" API Key 未配置")
 		return
 	}
 
@@ -118,13 +133,13 @@ func (h *AIImageHandler) Generate(c *gin.Context) {
 		return
 	}
 
-	generated, err := callMiniMaxImage(apiKey, input)
+	generated, err := callAIImageProvider(provider, apiKey, input)
 	if err != nil {
 		model.Fail(c, http.StatusBadGateway, err.Error())
 		return
 	}
 	if len(generated) == 0 {
-		model.Fail(c, http.StatusBadGateway, "MiniMax 未返回图片")
+		model.Fail(c, http.StatusBadGateway, aiImageProviderName(provider)+" 未返回图片")
 		return
 	}
 
@@ -163,10 +178,76 @@ func (h *AIImageHandler) Generate(c *gin.Context) {
 	recordAIImageUsage(c, userID, input)
 
 	model.Success(c, "生成成功", gin.H{
-		"album":  album,
-		"images": responses,
-		"quota":  aiImageQuota(userID),
+		"album":    album,
+		"images":   responses,
+		"quota":    aiImageQuota(userID),
+		"provider": provider,
 	})
+}
+
+func aiImageProvider() string {
+	switch strings.ToLower(strings.TrimSpace(systemConfigString("ai_image_provider", "minimax"))) {
+	case "openai", "siliconflow", "compatible":
+		return strings.ToLower(strings.TrimSpace(systemConfigString("ai_image_provider", "minimax")))
+	default:
+		return "minimax"
+	}
+}
+
+func aiImageProviderName(provider string) string {
+	switch provider {
+	case "openai":
+		return "OpenAI"
+	case "siliconflow":
+		return "SiliconFlow"
+	case "compatible":
+		return "OpenAI 兼容接口"
+	default:
+		return "MiniMax"
+	}
+}
+
+func aiImageProviderAPIKey(provider string) string {
+	switch provider {
+	case "openai":
+		if key := strings.TrimSpace(systemConfigString("openai_image_api_key", "")); key != "" {
+			return key
+		}
+		return strings.TrimSpace(os.Getenv("OPENAI_API_KEY"))
+	case "siliconflow":
+		if key := strings.TrimSpace(systemConfigString("siliconflow_image_api_key", "")); key != "" {
+			return key
+		}
+		return strings.TrimSpace(os.Getenv("SILICONFLOW_API_KEY"))
+	case "compatible":
+		return strings.TrimSpace(systemConfigString("compatible_image_api_key", ""))
+	default:
+		if key := strings.TrimSpace(systemConfigString("minimax_api_key", "")); key != "" {
+			return key
+		}
+		return strings.TrimSpace(os.Getenv("MINIMAX_API_KEY"))
+	}
+}
+
+func callAIImageProvider(provider string, apiKey string, input aiImageRequest) ([][]byte, error) {
+	switch provider {
+	case "openai":
+		return callOpenAIImage(apiKey, input,
+			systemConfigString("openai_image_api_endpoint", "https://api.openai.com/v1/images/generations"),
+			systemConfigString("openai_image_model", "gpt-image-1.5"),
+			"OpenAI",
+		)
+	case "siliconflow":
+		return callSiliconFlowImage(apiKey, input)
+	case "compatible":
+		return callOpenAIImage(apiKey, input,
+			systemConfigString("compatible_image_api_endpoint", ""),
+			systemConfigString("compatible_image_model", ""),
+			"OpenAI 兼容接口",
+		)
+	default:
+		return callMiniMaxImage(apiKey, input)
+	}
 }
 
 func checkAIImageRateLimit(userID uint) (int, bool) {
@@ -304,6 +385,154 @@ func callMiniMaxImage(apiKey string, input aiImageRequest) ([][]byte, error) {
 		images = append(images, data)
 	}
 	return images, nil
+}
+
+func callOpenAIImage(apiKey string, input aiImageRequest, endpoint string, modelName string, providerName string) ([][]byte, error) {
+	endpoint = strings.TrimSpace(endpoint)
+	modelName = strings.TrimSpace(modelName)
+	if endpoint == "" || modelName == "" {
+		return nil, fmt.Errorf("%s 接口地址或模型未配置", providerName)
+	}
+	payload := map[string]interface{}{
+		"model":  modelName,
+		"prompt": input.Prompt,
+		"n":      input.Count,
+		"size":   openAIImageSize(input.AspectRatio),
+	}
+	respBody, err := postAIImageRequest(endpoint, apiKey, payload, providerName)
+	if err != nil {
+		return nil, err
+	}
+	var parsed openAIImageResponse
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return nil, fmt.Errorf("%s 响应解析失败: %w", providerName, err)
+	}
+	if parsed.Error.Message != "" {
+		return nil, fmt.Errorf("%s 生成失败: %s", providerName, parsed.Error.Message)
+	}
+	images := make([][]byte, 0, len(parsed.Data))
+	for _, item := range parsed.Data {
+		if strings.TrimSpace(item.Base64) != "" {
+			data, err := decodeGeneratedBase64(item.Base64, providerName)
+			if err != nil {
+				return nil, err
+			}
+			images = append(images, data)
+			continue
+		}
+		if strings.TrimSpace(item.URL) != "" {
+			data, err := downloadGeneratedImage(item.URL)
+			if err != nil {
+				return nil, err
+			}
+			images = append(images, data)
+		}
+	}
+	return images, nil
+}
+
+func callSiliconFlowImage(apiKey string, input aiImageRequest) ([][]byte, error) {
+	endpoint := strings.TrimSpace(systemConfigString("siliconflow_image_api_endpoint", "https://api.siliconflow.cn/v1/images/generations"))
+	modelName := strings.TrimSpace(systemConfigString("siliconflow_image_model", "Kwai-Kolors/Kolors"))
+	if endpoint == "" || modelName == "" {
+		return nil, fmt.Errorf("SiliconFlow 接口地址或模型未配置")
+	}
+	payload := map[string]interface{}{
+		"model":      modelName,
+		"prompt":     input.Prompt,
+		"image_size": siliconFlowImageSize(input.AspectRatio),
+		"batch_size": input.Count,
+	}
+	respBody, err := postAIImageRequest(endpoint, apiKey, payload, "SiliconFlow")
+	if err != nil {
+		return nil, err
+	}
+	var parsed siliconFlowImageResponse
+	if err := json.Unmarshal(respBody, &parsed); err != nil {
+		return nil, fmt.Errorf("SiliconFlow 响应解析失败: %w", err)
+	}
+	if len(parsed.Images) == 0 && parsed.Message != "" {
+		return nil, fmt.Errorf("SiliconFlow 生成失败: %s", parsed.Message)
+	}
+	images := make([][]byte, 0, len(parsed.Images))
+	for _, item := range parsed.Images {
+		if strings.TrimSpace(item.URL) == "" {
+			continue
+		}
+		data, err := downloadGeneratedImage(item.URL)
+		if err != nil {
+			return nil, err
+		}
+		images = append(images, data)
+	}
+	return images, nil
+}
+
+func postAIImageRequest(endpoint string, apiKey string, payload map[string]interface{}, providerName string) ([]byte, error) {
+	body, _ := json.Marshal(payload)
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 120 * time.Second}).Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%s 请求失败: %w", providerName, err)
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("%s 响应读取失败: %w", providerName, err)
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("%s 请求失败: HTTP %d %s", providerName, resp.StatusCode, truncateString(string(respBody), 240))
+	}
+	return respBody, nil
+}
+
+func decodeGeneratedBase64(raw string, providerName string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if idx := strings.Index(raw, ","); strings.HasPrefix(raw, "data:") && idx >= 0 {
+		raw = raw[idx+1:]
+	}
+	data, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf("%s 图片解码失败: %w", providerName, err)
+	}
+	return data, nil
+}
+
+func openAIImageSize(ratio string) string {
+	switch ratio {
+	case "16:9", "4:3", "3:2", "21:9":
+		return "1536x1024"
+	case "2:3", "3:4", "9:16":
+		return "1024x1536"
+	default:
+		return "1024x1024"
+	}
+}
+
+func siliconFlowImageSize(ratio string) string {
+	switch ratio {
+	case "16:9":
+		return "1280x720"
+	case "4:3":
+		return "1152x864"
+	case "3:2":
+		return "1248x832"
+	case "2:3":
+		return "832x1248"
+	case "3:4":
+		return "864x1152"
+	case "9:16":
+		return "720x1280"
+	case "21:9":
+		return "1344x576"
+	default:
+		return "1024x1024"
+	}
 }
 
 func downloadGeneratedImage(imageURL string) ([]byte, error) {

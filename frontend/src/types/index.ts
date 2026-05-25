@@ -151,9 +151,19 @@ export interface SystemSettings {
   default_strategy_id?: string
   site_bg_image?: string
   site_bg_opacity?: number | string
+  ai_image_provider?: string
   minimax_api_key?: string
   minimax_api_endpoint?: string
   minimax_model?: string
+  openai_image_api_key?: string
+  openai_image_api_endpoint?: string
+  openai_image_model?: string
+  siliconflow_image_api_key?: string
+  siliconflow_image_api_endpoint?: string
+  siliconflow_image_model?: string
+  compatible_image_api_key?: string
+  compatible_image_api_endpoint?: string
+  compatible_image_model?: string
   ai_image_max_count?: number | string
   ai_image_rate_limit_seconds?: number | string
   ai_image_daily_limit?: number | string

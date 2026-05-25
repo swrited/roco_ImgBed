@@ -61,7 +61,7 @@ async function handleRegister() {
       />
       <div class="absolute inset-0 bg-black/50" />
       <div class="absolute bottom-10 left-10 max-w-md text-white">
-        <img src="/roco-wordmark.svg" alt="星诺图床" class="mb-4 h-16 w-44 object-contain object-left" />
+        <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="mb-4 h-16 w-44 object-contain object-left" />
         <h1 class="text-4xl font-semibold leading-tight">从第一张图片开始，建立自己的素材管理空间。</h1>
       </div>
     </section>
@@ -74,7 +74,7 @@ async function handleRegister() {
         </Button>
         <Card>
           <CardHeader>
-            <img src="/roco-logo.svg" alt="星诺图床" class="mb-2 h-12 w-12 rounded-2xl object-contain" />
+            <img src="/xinnuo-logo.svg" alt="星诺图库" class="mb-2 h-12 w-12 rounded-2xl object-contain" />
             <CardTitle class="text-2xl">创建账户</CardTitle>
             <CardDescription>注册后即可上传图片、管理相册和创建 API Key</CardDescription>
           </CardHeader>

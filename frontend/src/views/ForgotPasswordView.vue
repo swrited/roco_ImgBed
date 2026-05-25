@@ -29,7 +29,7 @@ async function handleSubmit() {
   <div class="flex min-h-screen items-center justify-center px-4 py-12">
     <Card class="w-full max-w-md">
       <CardHeader class="text-center">
-        <img src="/roco-logo.svg" alt="星诺图床" class="mx-auto mb-2 h-12 w-12 rounded-full object-contain" />
+        <img src="/xinnuo-logo.svg" alt="星诺图库" class="mx-auto mb-2 h-12 w-12 rounded-full object-contain" />
         <CardTitle class="text-2xl">忘记密码</CardTitle>
         <CardDescription>{{ sent ? '请检查你的邮箱' : '输入邮箱接收重置链接' }}</CardDescription>
       </CardHeader>

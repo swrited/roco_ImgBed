@@ -102,18 +102,18 @@ onMounted(() => {
       />
 
       <!-- Logo -->
-      <div class="relative z-10 flex h-16 items-center border-b border-violet-500/10 px-5">
+      <div class="relative z-10 flex h-20 items-center border-b border-violet-500/10 px-5">
         <router-link to="/" class="flex items-center gap-3 font-semibold overflow-hidden">
           <img
-            src="/roco-logo.svg"
-            alt="星诺图床"
-            class="h-10 w-10 shrink-0 rounded-xl object-contain shadow-lg shadow-purple-500/25"
+            src="/xinnuo-logo.svg"
+            alt="星诺图库"
+            class="h-[60px] w-[60px] shrink-0 rounded-xl object-contain shadow-lg shadow-purple-500/25"
           />
           <img
             v-show="!collapsed"
-            src="/roco-wordmark.svg"
-            alt="星诺图床"
-            class="h-11 w-32 object-contain object-left sidebar-label"
+            src="/xinnuo-wordmark.svg"
+            alt="星诺图库"
+            class="h-14 w-40 object-contain object-left sidebar-label"
           />
         </router-link>
       </div>
@@ -251,8 +251,8 @@ onMounted(() => {
           <SheetContent side="left" class="w-64 p-0">
             <div class="flex h-14 items-center border-b border-violet-500/10 px-4">
               <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-                <img src="/roco-logo.svg" alt="星诺图床" class="h-8 w-8 rounded-lg object-contain" />
-                <img src="/roco-wordmark.svg" alt="星诺图床" class="h-12 w-32 object-contain object-left" />
+                <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-12 w-12 rounded-lg object-contain" />
+                <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-14 w-40 object-contain object-left" />
               </router-link>
             </div>
             <nav class="flex-1 overflow-auto py-4 px-2 space-y-0.5">
@@ -272,8 +272,8 @@ onMounted(() => {
         </Sheet>
 
         <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-          <img src="/roco-logo.svg" alt="星诺图床" class="h-8 w-8 rounded-lg object-contain" />
-          <img src="/roco-wordmark.svg" alt="星诺图床" class="h-12 w-32 object-contain object-left" />
+          <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-12 w-12 rounded-lg object-contain" />
+          <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-14 w-40 object-contain object-left" />
         </router-link>
         <div class="flex-1" />
 

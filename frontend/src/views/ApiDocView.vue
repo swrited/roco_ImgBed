@@ -122,13 +122,13 @@ const endpoints: Endpoint[] = [
     label: 'AI 生图',
     method: 'POST',
     path: '/api/v1/ai/images',
-    desc: '调用 MiniMax 生成图片，并自动保存到当前用户的“AI 生成”相册。',
+    desc: '调用管理员配置的 AI 生图渠道生成图片，并自动保存到当前用户的“AI 生成”相册。',
     auth: true,
     body: [
       { name: 'prompt', type: 'String', required: '是', desc: '提示词，最多 1500 字符' },
       { name: 'aspect_ratio', type: 'String', required: '否', desc: '1:1 / 16:9 / 4:3 / 3:2 / 2:3 / 3:4 / 9:16 / 21:9' },
       { name: 'count', type: 'Integer', required: '否', desc: '生成数量，受后台单次最大数量限制' },
-      { name: 'prompt_optimizer', type: 'Boolean', required: '否', desc: '是否启用提示词优化' },
+      { name: 'prompt_optimizer', type: 'Boolean', required: '否', desc: '是否启用提示词优化，仅 MiniMax 渠道生效' },
     ],
     bodyExample: `{
   "prompt": "一张极简科技风的紫色星空图片",
@@ -137,6 +137,7 @@ const endpoints: Endpoint[] = [
   "prompt_optimizer": true
 }`,
     response: [
+      { name: 'provider', type: 'String', desc: '实际使用的生图渠道：minimax / openai / siliconflow / compatible' },
       { name: 'album', type: 'Object', desc: 'AI 生成相册信息' },
       { name: 'images', type: 'Array<Image>', desc: '生成并保存后的图片列表' },
     ],
@@ -144,6 +145,7 @@ const endpoints: Endpoint[] = [
   "status": true,
   "message": "生成成功",
   "data": {
+    "provider": "minimax",
     "album": { "id": 4, "name": "AI 生成" },
     "images": [{ "key": "abc123", "links": { "url": "https://..." } }]
   }

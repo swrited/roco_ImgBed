@@ -22,6 +22,7 @@ var publicSettingKeys = []string{
 	"is_enable_gallery",
 	"is_enable_api",
 	"is_enable_ai_image",
+	"ai_image_provider",
 	"site_bg_image",
 	"site_bg_opacity",
 }
