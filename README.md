@@ -13,16 +13,16 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/zuquanzhi/sino-imgbed/stargazers"><img src="https://img.shields.io/github/stars/zuquanzhi/sino-imgbed?color=gold&label=Stars" alt="Stars"></a>
-  <a href="https://github.com/zuquanzhi/sino-imgbed/issues"><img src="https://img.shields.io/github/issues/zuquanzhi/sino-imgbed" alt="Issues"></a>
-  <a href="https://github.com/zuquanzhi/sino-imgbed/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
+  <a href="https://github.com/swrited/Sino-Imgbed/stargazers"><img src="https://img.shields.io/github/stars/swrited/Sino-Imgbed?color=gold&label=Stars" alt="Stars"></a>
+  <a href="https://github.com/swrited/Sino-Imgbed/issues"><img src="https://img.shields.io/github/issues/swrited/Sino-Imgbed" alt="Issues"></a>
+  <a href="https://github.com/swrited/Sino-Imgbed/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License"></a>
   <img src="https://img.shields.io/badge/Go-1.21%2B-00ADD8?logo=go" alt="Go">
   <img src="https://img.shields.io/badge/Vue-3-4FC08D?logo=vue.js" alt="Vue">
   <img src="https://img.shields.io/badge/Tailwind-3-38B2AC?logo=tailwindcss" alt="Tailwind">
 </p>
 
 <p align="center">
-  <a href="https://github.com/zuquanzhi/sino-imgbed"><strong>在线体验</strong></a> &nbsp;&bull;&nbsp;
+  <a href="https://github.com/swrited/Sino-Imgbed"><strong>项目主页</strong></a> &nbsp;&bull;&nbsp;
   <a href="#快速开始"><strong>快速开始</strong></a> &nbsp;&bull;&nbsp;
   <a href="#功能特性"><strong>功能特性</strong></a> &nbsp;&bull;&nbsp;
   <a href="#技术架构"><strong>技术架构</strong></a> &nbsp;&bull;&nbsp;
@@ -110,8 +110,8 @@
 ### 方式一：Docker Compose（推荐）
 
 ```bash
-git clone https://github.com/zuquanzhi/sino-imgbed.git
-cd sino-imgbed
+git clone https://github.com/swrited/Sino-Imgbed.git
+cd Sino-Imgbed
 
 # 构建前端
 cd frontend && npm install && npm run build && cd ..
@@ -236,7 +236,46 @@ sino-imgbed/
 
 ## 截图
 
-> 截图区域待补充：上传页、图库管理、控制台、存储策略设置、AI 生图
+### 控制面板
+
+查看图片数量、相册数量、已用容量与近期上传趋势，快速掌握图库状态。
+
+![控制面板](./docs/readme/dashboard.jpg)
+
+<table>
+  <tr>
+    <td width="50%">
+      <strong>上传与归档</strong><br>
+      <sub>拖拽上传、选择相册并设置标签。</sub><br><br>
+      <img src="./docs/readme/upload.jpg" alt="上传图片">
+    </td>
+    <td width="50%">
+      <strong>相册图片管理</strong><br>
+      <sub>按相册与标签浏览、筛选图片。</sub><br><br>
+      <img src="./docs/readme/album-images.jpg" alt="相册图片管理">
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <strong>探索公开图库</strong><br>
+      <sub>浏览公开相册并搜索公开内容。</sub><br><br>
+      <img src="./docs/readme/discover.jpg" alt="探索公开图库">
+    </td>
+    <td width="50%">
+      <strong>API 测试台</strong><br>
+      <sub>测试随机图、设备自适应图、AI 生图等接口，并复制请求命令。</sub><br><br>
+      <img src="./docs/readme/api-playground.jpg" alt="API 测试台">
+    </td>
+  </tr>
+</table>
+
+## 交流与内测
+
+欢迎加入微信内测群，反馈部署、使用和功能体验问题，也可以交流自建图库方案。
+
+<p align="center">
+  <img src="./docs/内测群微信二维码.jpg" width="360" alt="星诺图库微信内测群二维码">
+</p>
 
 ## 路线图
 
@@ -250,8 +289,8 @@ sino-imgbed/
 
 欢迎 Issue、PR 和 Star。请参阅 [CONTRIBUTING.md](./CONTRIBUTING.md) 了解开发规范。
 
-<a href="https://github.com/zuquanzhi/sino-imgbed/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=zuquanzhi/sino-imgbed" />
+<a href="https://github.com/swrited/Sino-Imgbed/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=swrited/Sino-Imgbed" />
 </a>
 
 ## 开源协议
