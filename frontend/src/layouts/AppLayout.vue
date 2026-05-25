@@ -241,7 +241,7 @@ onMounted(() => {
     <div class="flex flex-1 flex-col overflow-hidden">
 
       <!-- Mobile header -->
-      <header class="flex h-14 items-center gap-4 border-b border-violet-500/10 bg-[oklch(6%_0.005_270)]/90 px-4 backdrop-blur-xl lg:hidden">
+      <header class="flex h-14 items-center gap-2 border-b border-violet-500/10 bg-background px-3 lg:hidden">
         <Sheet>
           <SheetTrigger as-child>
             <Button variant="ghost" size="icon">
@@ -251,8 +251,8 @@ onMounted(() => {
           <SheetContent side="left" class="w-64 p-0">
             <div class="flex h-14 items-center border-b border-violet-500/10 px-4">
               <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-                <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-12 w-12 rounded-lg object-contain" />
-                <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-14 w-40 object-contain object-left" />
+                <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-10 w-10 rounded-lg object-contain" />
+                <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-10 w-32 object-contain object-left" />
               </router-link>
             </div>
             <nav class="flex-1 overflow-auto py-4 px-2 space-y-0.5">
@@ -271,9 +271,9 @@ onMounted(() => {
           </SheetContent>
         </Sheet>
 
-        <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-          <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-12 w-12 rounded-lg object-contain" />
-          <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-14 w-40 object-contain object-left" />
+        <router-link to="/" class="flex min-w-0 items-center gap-1.5 font-semibold text-white">
+          <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-9 w-9 shrink-0 rounded-lg object-contain" />
+          <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-9 w-28 object-contain object-left" />
         </router-link>
         <div class="flex-1" />
 
@@ -295,7 +295,7 @@ onMounted(() => {
       </header>
 
       <!-- Page content -->
-      <main class="flex-1 overflow-auto" style="background: radial-gradient(ellipse 80% 50% at 50% -10%, oklch(60% 0.22 293 / 0.06), transparent);">
+      <main class="app-content flex-1 overflow-auto">
         <div class="page-shell">
           <RouterView v-slot="{ Component, route }">
             <Transition name="page-slide" mode="out-in">
@@ -316,6 +316,16 @@ onMounted(() => {
 
 .sidebar-expanded {
   width: 18rem; /* w-72 = 288px */
+}
+
+.app-content {
+  background: radial-gradient(ellipse 80% 50% at 50% -10%, oklch(60% 0.22 293 / 0.06), transparent);
+}
+
+@media (max-width: 1023px) {
+  .app-content {
+    background: var(--background);
+  }
 }
 
 .sidebar-collapsed {

@@ -198,14 +198,14 @@ onMounted(loadSettings)
 </script>
 
 <template>
-  <div class="max-w-2xl">
+  <div class="mx-auto max-w-6xl">
     <div class="flex items-center justify-between mb-6">
       <h1 class="text-2xl font-bold">系统设置</h1>
     </div>
 
-    <div class="space-y-6">
+    <div class="grid items-start gap-6 xl:grid-cols-2">
       <!-- 外观设置 -->
-      <Card>
+      <Card class="xl:col-span-2">
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <ImageIcon class="h-5 w-5 text-violet-400" />
@@ -282,7 +282,7 @@ onMounted(loadSettings)
       </Card>
 
       <!-- 基本设置 -->
-      <Card>
+      <Card class="xl:col-span-2">
         <CardHeader>
           <CardTitle>基本设置</CardTitle>
           <CardDescription>配置站点名称、描述等基本信息</CardDescription>
@@ -313,14 +313,14 @@ onMounted(loadSettings)
           <CardDescription>配置注册和用户相关选项</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div class="rounded-xl border border-white/10 bg-secondary px-4 py-3 flex items-center justify-between">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">开放注册</Label>
               <p class="text-xs text-muted-foreground">允许新用户在首页注册账户</p>
             </div>
             <Switch v-model="settings.is_enable_registration" />
           </div>
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div class="rounded-xl border border-white/10 bg-secondary px-4 py-3 flex items-center justify-between">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">游客上传</Label>
               <p class="text-xs text-muted-foreground">未登录用户可以直接上传图片</p>
@@ -367,14 +367,14 @@ onMounted(loadSettings)
           <CardDescription>控制系统核心功能的启用状态</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div class="rounded-xl border border-white/10 bg-secondary px-4 py-3 flex items-center justify-between">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">画廊功能</Label>
               <p class="text-xs text-muted-foreground">允许游客和注册用户浏览公开图库</p>
             </div>
             <Switch v-model="settings.is_enable_gallery" />
           </div>
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div class="rounded-xl border border-white/10 bg-secondary px-4 py-3 flex items-center justify-between">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">API 接口</Label>
               <p class="text-xs text-muted-foreground">开放外部接口供第三方工具和脚本调用</p>
@@ -400,7 +400,7 @@ onMounted(loadSettings)
       </Card>
 
       <!-- AI 生图 -->
-      <Card>
+      <Card class="xl:col-span-2">
         <CardHeader>
           <CardTitle class="flex items-center gap-2">
             <WandSparkles class="h-5 w-5 text-purple-400" />
@@ -409,7 +409,7 @@ onMounted(loadSettings)
           <CardDescription>选择图片生成渠道并配置凭据，普通用户不会看到 API Key。</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div class="flex items-center justify-between rounded-xl border border-white/5 px-4 py-3">
+          <div class="rounded-xl border border-white/10 bg-secondary px-4 py-3 flex items-center justify-between">
             <div class="space-y-0.5">
               <Label class="text-sm font-medium">启用 AI 生图</Label>
               <p class="text-xs text-muted-foreground">启用后，用户可以通过当前渠道生成并自动保存图片</p>
@@ -432,7 +432,7 @@ onMounted(loadSettings)
             <p class="text-xs text-muted-foreground">切换渠道不会清空已保存的其他渠道配置。</p>
           </div>
 
-          <div v-if="settings.ai_image_provider === 'minimax'" class="space-y-4 rounded-xl border border-white/5 p-4">
+          <div v-if="settings.ai_image_provider === 'minimax'" class="space-y-4 rounded-xl border border-white/10 bg-secondary p-4">
             <div class="space-y-2">
               <Label>MiniMax API Key</Label>
               <Input v-model="settings.minimax_api_key" type="password" placeholder="填入 MiniMax 开放平台 API Key" />
@@ -447,7 +447,7 @@ onMounted(loadSettings)
             </div>
           </div>
 
-          <div v-else-if="settings.ai_image_provider === 'openai'" class="space-y-4 rounded-xl border border-white/5 p-4">
+          <div v-else-if="settings.ai_image_provider === 'openai'" class="space-y-4 rounded-xl border border-white/10 bg-secondary p-4">
             <div class="space-y-2">
               <Label>OpenAI API Key</Label>
               <Input v-model="settings.openai_image_api_key" type="password" placeholder="填入 OpenAI API Key" />
@@ -463,7 +463,7 @@ onMounted(loadSettings)
             <p class="text-xs text-muted-foreground">不同画幅将映射到 GPT Image 支持的横版、竖版或正方形尺寸。</p>
           </div>
 
-          <div v-else-if="settings.ai_image_provider === 'siliconflow'" class="space-y-4 rounded-xl border border-white/5 p-4">
+          <div v-else-if="settings.ai_image_provider === 'siliconflow'" class="space-y-4 rounded-xl border border-white/10 bg-secondary p-4">
             <div class="space-y-2">
               <Label>SiliconFlow API Key</Label>
               <Input v-model="settings.siliconflow_image_api_key" type="password" placeholder="填入 SiliconFlow API Key" />
@@ -478,7 +478,7 @@ onMounted(loadSettings)
             </div>
           </div>
 
-          <div v-else class="space-y-4 rounded-xl border border-white/5 p-4">
+          <div v-else class="space-y-4 rounded-xl border border-white/10 bg-secondary p-4">
             <div class="space-y-2">
               <Label>兼容接口 API Key</Label>
               <Input v-model="settings.compatible_image_api_key" type="password" placeholder="填入服务商 API Key" />
@@ -554,7 +554,7 @@ onMounted(loadSettings)
           <CardDescription>检查更新并执行在线升级</CardDescription>
         </CardHeader>
         <CardContent class="space-y-4">
-          <div v-if="upgradeInfo" class="rounded-lg bg-muted/50 p-3">
+          <div v-if="upgradeInfo" class="rounded-lg bg-muted p-3">
             <p class="text-sm font-medium">{{ upgradeInfo }}</p>
           </div>
           <div class="flex gap-2">
@@ -570,8 +570,8 @@ onMounted(loadSettings)
     </div>
 
     <!-- 粘性底部保存栏 -->
-    <div class="sticky bottom-0 z-10 -mx-4 px-4 py-3 bg-background/95 backdrop-blur border-t border-border mt-8">
-      <div class="max-w-2xl mx-auto flex justify-end">
+    <div class="sticky bottom-0 z-10 -mx-4 mt-8 border-t border-border bg-background px-4 py-3">
+      <div class="mx-auto flex max-w-6xl justify-end">
         <Button @click="confirmSave">
           <Save class="mr-2 h-4 w-4" /> 保存设置
         </Button>

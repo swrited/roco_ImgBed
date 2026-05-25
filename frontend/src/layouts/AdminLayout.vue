@@ -8,14 +8,14 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="flex flex-col h-full">
-    <header class="flex h-14 items-center gap-4 border-b bg-card px-4">
+  <div class="flex min-w-0 flex-col gap-6">
+    <header class="flex h-12 items-center gap-3 border-b border-white/10">
       <Button variant="ghost" size="icon" @click="router.push('/')">
         <ArrowLeft class="h-5 w-5" />
       </Button>
       <h1 class="font-semibold">管理后台</h1>
     </header>
-    <main class="flex-1 overflow-auto p-6">
+    <main class="min-w-0">
       <RouterView />
     </main>
   </div>
