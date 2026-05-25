@@ -39,10 +39,10 @@ const featureColors: Record<string, string> = {
       <router-link to="/" class="flex items-center gap-3 font-semibold">
         <img
           src="/roco-logo.svg"
-          alt="洛克图床"
+          alt="星诺图床"
           class="h-10 w-10 rounded-xl object-contain shadow-lg shadow-purple-500/20"
         />
-        <img src="/roco-wordmark.svg" alt="洛克图床" class="h-11 w-32 object-contain object-left" />
+        <img src="/roco-wordmark.svg" alt="星诺图床" class="h-11 w-32 object-contain object-left" />
       </router-link>
       <div class="flex items-center gap-2">
         <Button variant="ghost" @click="router.push('/gallery')">画廊</Button>

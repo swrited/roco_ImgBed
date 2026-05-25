@@ -12,11 +12,20 @@ import {
   Menu, LayoutDashboard, Upload, Image, FolderOpen, Images,
   BookOpen, Settings, Shield, HardDrive, BarChart3, Users,
   Key, Terminal, Activity, WandSparkles, Trash2,
+  PanelLeftClose, PanelLeftOpen,
 } from 'lucide-vue-next'
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 const auth = useAuthStore()
 const router = useRouter()
+
+// ── Sidebar collapse state (persisted) ──
+const collapsed = ref(localStorage.getItem('sidebar-collapsed') === 'true')
+
+function toggleCollapse() {
+  collapsed.value = !collapsed.value
+  localStorage.setItem('sidebar-collapsed', String(collapsed.value))
+}
 
 const userInitials = computed(() => auth.user?.name?.charAt(0).toUpperCase() || 'U')
 const usedCapacity  = computed(() => auth.user?.used_capacity || 0)
@@ -74,7 +83,10 @@ onMounted(() => {
   <div class="flex h-screen bg-background text-foreground">
 
     <!-- ── Desktop Sidebar ───────────────────────────────────────────────── -->
-    <aside class="relative hidden lg:flex w-72 flex-col border-r border-violet-500/10 bg-[oklch(7%_0.007_270)]">
+    <aside
+      class="sidebar-aside relative hidden lg:flex flex-col border-r border-violet-500/10 bg-[oklch(7%_0.007_270)]"
+      :class="collapsed ? 'sidebar-collapsed' : 'sidebar-expanded'"
+    >
 
       <!-- Top ambient glow blob -->
       <div
@@ -91,53 +103,66 @@ onMounted(() => {
 
       <!-- Logo -->
       <div class="relative z-10 flex h-16 items-center border-b border-violet-500/10 px-5">
-        <router-link to="/" class="flex items-center gap-3 font-semibold">
+        <router-link to="/" class="flex items-center gap-3 font-semibold overflow-hidden">
           <img
             src="/roco-logo.svg"
-            alt="洛克图床"
-            class="h-10 w-10 rounded-xl object-contain shadow-lg shadow-purple-500/25"
+            alt="星诺图床"
+            class="h-10 w-10 shrink-0 rounded-xl object-contain shadow-lg shadow-purple-500/25"
           />
-          <img src="/roco-wordmark.svg" alt="洛克图床" class="h-11 w-32 object-contain object-left" />
+          <img
+            v-show="!collapsed"
+            src="/roco-wordmark.svg"
+            alt="星诺图床"
+            class="h-11 w-32 object-contain object-left sidebar-label"
+          />
         </router-link>
       </div>
 
       <!-- Nav -->
-      <nav class="relative z-10 flex-1 overflow-auto px-3 py-5 space-y-0.5">
+      <nav class="relative z-10 flex-1 overflow-auto py-5 space-y-0.5" :class="collapsed ? 'px-2' : 'px-3'">
         <div v-for="item in navItems" :key="item.to">
           <router-link
             v-if="!item.requiresAuth || auth.isAuthenticated"
             :to="item.to"
-            class="relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-150 border border-transparent"
-            :class="isActive(item.to) ? 'nav-item-active' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'"
+            :title="collapsed ? item.label : undefined"
+            class="relative flex items-center rounded-xl py-2.5 text-sm transition-all duration-150 border border-transparent"
+            :class="[
+              isActive(item.to) ? 'nav-item-active' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100',
+              collapsed ? 'justify-center px-0 gap-0' : 'gap-3 px-3.5',
+            ]"
           >
             <component :is="item.icon" class="h-4 w-4 shrink-0" />
-            {{ item.label }}
+            <span v-show="!collapsed" class="sidebar-label">{{ item.label }}</span>
           </router-link>
         </div>
 
         <template v-if="auth.isAdmin">
           <Separator class="my-4" />
-          <p class="px-3.5 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+          <p v-show="!collapsed" class="px-3.5 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500 sidebar-label">
             管理后台
           </p>
           <div v-for="item in adminNavItems" :key="item.to">
             <router-link
               :to="item.to"
-              class="relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-sm transition-all duration-150 border border-transparent"
-              :class="isActive(item.to, item.exact) ? 'nav-item-active' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'"
+              :title="collapsed ? item.label : undefined"
+              class="relative flex items-center rounded-xl py-2.5 text-sm transition-all duration-150 border border-transparent"
+              :class="[
+                isActive(item.to, item.exact) ? 'nav-item-active' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100',
+                collapsed ? 'justify-center px-0 gap-0' : 'gap-3 px-3.5',
+              ]"
             >
               <component :is="item.icon" class="h-4 w-4 shrink-0" />
-              {{ item.label }}
+              <span v-show="!collapsed" class="sidebar-label">{{ item.label }}</span>
             </router-link>
           </div>
         </template>
       </nav>
 
       <!-- User footer -->
-      <div class="relative z-10 border-t border-violet-500/10 p-4 space-y-3">
+      <div class="relative z-10 border-t border-violet-500/10 p-4 space-y-3" :class="collapsed ? 'px-2' : ''">
         <template v-if="auth.isAuthenticated">
           <!-- Capacity widget -->
-          <div class="rounded-xl border border-white/8 bg-white/[0.03] p-3">
+          <div v-show="!collapsed" class="rounded-xl border border-white/8 bg-white/[0.03] p-3 sidebar-label">
             <div class="mb-2 flex items-center justify-between text-xs">
               <span class="font-medium text-slate-300">存储空间</span>
               <span class="tabular-nums text-slate-500">{{ capacityLabel }}</span>
@@ -157,36 +182,58 @@ onMounted(() => {
           <!-- Profile button -->
           <button
             type="button"
-            class="flex w-full min-w-0 items-center gap-3 rounded-xl border border-white/5 bg-white/[0.04] p-2.5 text-left transition-all duration-150 hover:border-violet-500/30 hover:bg-violet-500/10"
+            class="flex w-full min-w-0 items-center rounded-xl border border-white/5 bg-white/[0.04] text-left transition-all duration-150 hover:border-violet-500/30 hover:bg-violet-500/10"
+            :class="collapsed ? 'justify-center p-2' : 'gap-3 p-2.5'"
+            :title="collapsed ? auth.user?.name : undefined"
             @click="router.push('/settings')"
           >
-            <Avatar class="h-9 w-9 ring-2 ring-violet-500/25 ring-offset-1 ring-offset-[oklch(7%_0.007_270)]">
+            <Avatar class="h-9 w-9 shrink-0 ring-2 ring-violet-500/25 ring-offset-1 ring-offset-[oklch(7%_0.007_270)]">
               <AvatarImage :src="auth.user?.avatar || ''" />
               <AvatarFallback class="bg-violet-500/20 text-violet-300 font-semibold">
                 {{ userInitials }}
               </AvatarFallback>
             </Avatar>
-            <div class="min-w-0 flex-1">
+            <div v-show="!collapsed" class="min-w-0 flex-1 sidebar-label">
               <p class="truncate text-sm font-medium text-slate-100">{{ auth.user?.name }}</p>
               <p class="truncate text-xs text-slate-500">{{ auth.user?.email }}</p>
             </div>
-            <Settings class="h-3.5 w-3.5 shrink-0 text-slate-600" />
+            <Settings v-show="!collapsed" class="h-3.5 w-3.5 shrink-0 text-slate-600 sidebar-label" />
           </button>
         </template>
 
         <!-- Not logged in -->
-        <div v-else class="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3.5">
-          <div>
-            <p class="text-sm font-semibold text-slate-100">登录后管理图片</p>
-            <p class="mt-1 text-xs leading-5 text-slate-400">
-              上传图片、创建相册和生成 API Key。
-            </p>
+        <div v-else>
+          <div v-if="!collapsed" class="space-y-3 rounded-xl border border-violet-500/20 bg-violet-500/10 p-3.5">
+            <div>
+              <p class="text-sm font-semibold text-slate-100">登录后管理图片</p>
+              <p class="mt-1 text-xs leading-5 text-slate-400">
+                上传图片、创建相册和生成 API Key。
+              </p>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <Button class="h-9" @click="router.push('/login')">登录</Button>
+              <Button variant="outline" class="h-9 border-white/10 bg-white/5" @click="router.push('/register')">注册</Button>
+            </div>
           </div>
-          <div class="grid grid-cols-2 gap-2">
-            <Button class="h-9" @click="router.push('/login')">登录</Button>
-            <Button variant="outline" class="h-9 border-white/10 bg-white/5" @click="router.push('/register')">注册</Button>
-          </div>
+          <Button v-else variant="ghost" size="icon" class="w-full" title="登录" @click="router.push('/login')">
+            <Avatar class="h-9 w-9 ring-2 ring-violet-500/25">
+              <AvatarFallback class="bg-violet-500/20 text-violet-300">?</AvatarFallback>
+            </Avatar>
+          </Button>
         </div>
+
+        <!-- Collapse toggle button -->
+        <button
+          type="button"
+          class="flex w-full items-center rounded-xl py-2 text-xs text-slate-500 transition-all duration-150 hover:bg-white/5 hover:text-slate-300"
+          :class="collapsed ? 'justify-center px-0' : 'gap-2 px-3'"
+          :title="collapsed ? '展开菜单' : '收起菜单'"
+          @click="toggleCollapse"
+        >
+          <PanelLeftClose v-if="!collapsed" class="h-4 w-4 shrink-0" />
+          <PanelLeftOpen v-else class="h-4 w-4 shrink-0" />
+          <span v-show="!collapsed" class="sidebar-label">收起菜单</span>
+        </button>
       </div>
     </aside>
 
@@ -204,8 +251,8 @@ onMounted(() => {
           <SheetContent side="left" class="w-64 p-0">
             <div class="flex h-14 items-center border-b border-violet-500/10 px-4">
               <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-                <img src="/roco-logo.svg" alt="洛克图床" class="h-8 w-8 rounded-lg object-contain" />
-                <img src="/roco-wordmark.svg" alt="洛克图床" class="h-12 w-32 object-contain object-left" />
+                <img src="/roco-logo.svg" alt="星诺图床" class="h-8 w-8 rounded-lg object-contain" />
+                <img src="/roco-wordmark.svg" alt="星诺图床" class="h-12 w-32 object-contain object-left" />
               </router-link>
             </div>
             <nav class="flex-1 overflow-auto py-4 px-2 space-y-0.5">
@@ -225,8 +272,8 @@ onMounted(() => {
         </Sheet>
 
         <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-          <img src="/roco-logo.svg" alt="洛克图床" class="h-8 w-8 rounded-lg object-contain" />
-          <img src="/roco-wordmark.svg" alt="洛克图床" class="h-12 w-32 object-contain object-left" />
+          <img src="/roco-logo.svg" alt="星诺图床" class="h-8 w-8 rounded-lg object-contain" />
+          <img src="/roco-wordmark.svg" alt="星诺图床" class="h-12 w-32 object-contain object-left" />
         </router-link>
         <div class="flex-1" />
 
@@ -260,3 +307,27 @@ onMounted(() => {
     </div>
   </div>
 </template>
+
+<style scoped>
+.sidebar-aside {
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.sidebar-expanded {
+  width: 18rem; /* w-72 = 288px */
+}
+
+.sidebar-collapsed {
+  width: 4.5rem; /* 72px — enough for icon + padding */
+}
+
+.sidebar-label {
+  transition: opacity 0.15s ease;
+}
+
+.sidebar-collapsed .sidebar-label {
+  opacity: 0;
+  pointer-events: none;
+}
+</style>

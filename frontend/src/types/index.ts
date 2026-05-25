@@ -117,3 +117,50 @@ export interface RegisterData {
   password: string
   password_confirmation: string
 }
+
+export interface ApiKey {
+  id: number
+  name: string
+  key: string
+  last_used?: string
+  revoked_at?: string
+  created_at: string
+}
+
+export interface ApiUsageStats {
+  total_requests: number
+  total_success: number
+  total_errors: number
+  avg_latency_ms: number
+  requests_by_day: { date: string; count: number }[]
+  top_endpoints: { path: string; count: number }[]
+}
+
+export interface SystemSettings {
+  app_name?: string
+  app_version?: string
+  site_description?: string
+  site_keywords?: string
+  is_enable_registration?: boolean | string
+  is_enable_guest_upload?: boolean | string
+  is_enable_gallery?: boolean | string
+  is_enable_api?: boolean | string
+  is_enable_ai_image?: boolean | string
+  upload_max_size?: number | string
+  user_initial_capacity?: number | string
+  default_strategy_id?: string
+  site_bg_image?: string
+  site_bg_opacity?: number | string
+  minimax_api_key?: string
+  minimax_api_endpoint?: string
+  minimax_model?: string
+  ai_image_max_count?: number | string
+  ai_image_rate_limit_seconds?: number | string
+  ai_image_daily_limit?: number | string
+  api_key_minute_limit?: number | string
+  api_key_daily_limit?: number | string
+  mail_host?: string
+  mail_port?: string
+  mail_username?: string
+  mail_password?: string
+}

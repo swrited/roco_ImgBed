@@ -14,6 +14,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 	r.Use(middleware.CORSMiddleware())
 	r.Use(middleware.APIUsageLogger())
 
+	// 静态文件：背景图片
+	r.Static("/uploads/bg", "./uploads/bg")
+
 	// Health check
 	r.GET("/api/ping", func(c *gin.Context) {
 		c.JSON(200, gin.H{"message": "pong"})
@@ -38,6 +41,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 		api.POST("/reset-password", handler.NewUserHandler().ResetPassword)
 
 		// ======== 公开 API（支持 Bearer Token、API Key 或无认证） ========
+		// ======== 公开设置（无需任何认证） ========
+		api.GET("/settings/public", handler.NewPublicSettingHandler().Index)
+
 		apiPub := api.Group("")
 		apiPub.Use(middleware.OptionalAuthOrApiKey(cfg))
 		{
@@ -181,5 +187,6 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 		adminGroup.GET("/settings", adminSettingH.Index)
 		adminGroup.PUT("/settings", adminSettingH.Save)
 		adminGroup.POST("/settings/mail-test", adminSettingH.MailTest)
+		adminGroup.POST("/settings/bg-upload", adminSettingH.BgUpload)
 	}
 }

@@ -1,15 +1,45 @@
+# macOS
 .DS_Store
+
+# Environment files
 .env
+.env.local
+.env.*.local
+
+# Database files
 *.db
+*.sqlite
+*.sqlite3
 
-# Backend runtime artifacts
+# Backend
 backend-go/server
-backend-go/uploads/
+backend-go/server.exe
+backend-go/server.log
+backend-go/server_mac
 backend-go/*.db
+backend-go/uploads/*
+!backend-go/uploads/.gitkeep
 
-# Frontend dependencies and build output
+# Frontend
 frontend/node_modules/
 frontend/dist/
-frontend/*.db
 frontend/.agents/
 frontend/skills-lock.json
+frontend/*.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+Thumbs.db
+.claude/
