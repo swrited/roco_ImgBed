@@ -344,7 +344,7 @@ func callMiniMaxImage(apiKey string, input aiImageRequest) ([][]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("MiniMax 请求失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -480,7 +480,7 @@ func postAIImageRequest(endpoint string, apiKey string, payload map[string]inter
 	if err != nil {
 		return nil, fmt.Errorf("%s 请求失败: %w", providerName, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("%s 响应读取失败: %w", providerName, err)
@@ -541,7 +541,7 @@ func downloadGeneratedImage(imageURL string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("图片下载失败: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("图片下载失败: HTTP %d", resp.StatusCode)
 	}

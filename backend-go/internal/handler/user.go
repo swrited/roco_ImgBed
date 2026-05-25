@@ -147,7 +147,7 @@ func (h *UserHandler) Dashboard(c *gin.Context) {
 		Order("date ASC").
 		Rows()
 	if err == nil {
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 		type row struct {
 			Date  string
 			Count int64

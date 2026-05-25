@@ -275,7 +275,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 		model.Fail(c, http.StatusInternalServerError, "文件打开失败")
 		return
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	data, md5Sum, sha1Sum, err := readFileData(src)
 	if err != nil {
