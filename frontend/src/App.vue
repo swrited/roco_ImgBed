@@ -63,6 +63,12 @@ const overlayOpacity = computed(() => settings.bgOpacity / 100)
   background: oklch(8% 0.01 270);
 }
 
+@media (max-width: 1023px) {
+  .site-bg-layer {
+    display: none;
+  }
+}
+
 /* 背景图淡入动画 */
 .bg-fade-enter-active {
   transition: opacity 0.8s ease;

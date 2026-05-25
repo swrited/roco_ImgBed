@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useRouter } from 'vue-router'
 import { RouterView } from 'vue-router'
 import {
-  Sheet, SheetContent, SheetTrigger,
+  Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger,
 } from '@/components/ui/sheet'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -248,14 +248,15 @@ onMounted(() => {
               <Menu class="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="left" class="w-64 p-0">
-            <div class="flex h-14 items-center border-b border-violet-500/10 px-4">
-              <router-link to="/" class="flex items-center gap-2 font-semibold text-white">
-                <img src="/xinnuo-logo.svg" alt="星诺图库" class="h-10 w-10 rounded-lg object-contain" />
-                <img src="/xinnuo-wordmark.svg" alt="星诺图库" class="h-10 w-32 object-contain object-left" />
-              </router-link>
+          <SheetContent
+            side="left"
+            class="data-[side=left]:!w-[min(15rem,78vw)] gap-0 border-violet-500/10 bg-[oklch(7%_0.007_270)] p-0 shadow-none"
+          >
+            <div class="h-12 shrink-0 border-b border-white/5">
+              <SheetTitle class="sr-only">站点导航</SheetTitle>
+              <SheetDescription class="sr-only">访问图库功能与管理后台页面</SheetDescription>
             </div>
-            <nav class="flex-1 overflow-auto py-4 px-2 space-y-0.5">
+            <nav class="flex-1 overflow-auto px-2 py-3 space-y-0.5">
               <div v-for="item in navItems" :key="item.to">
                 <router-link
                   v-if="!item.requiresAuth || auth.isAuthenticated"
@@ -267,6 +268,23 @@ onMounted(() => {
                   {{ item.label }}
                 </router-link>
               </div>
+
+              <template v-if="auth.isAdmin">
+                <Separator class="my-3" />
+                <p class="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-500">
+                  管理后台
+                </p>
+                <div v-for="item in adminNavItems" :key="item.to">
+                  <router-link
+                    :to="item.to"
+                    class="relative flex items-center gap-3 rounded-xl border border-transparent px-3 py-2.5 text-sm transition-all"
+                    :class="isActive(item.to, item.exact) ? 'nav-item-active' : 'text-slate-400 hover:bg-white/5 hover:text-slate-100'"
+                  >
+                    <component :is="item.icon" class="h-4 w-4 shrink-0" />
+                    {{ item.label }}
+                  </router-link>
+                </div>
+              </template>
             </nav>
           </SheetContent>
         </Sheet>
