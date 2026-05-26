@@ -189,8 +189,38 @@ func buildImageURL(baseURL, objectPath string) string {
 	return baseURL + objectPath
 }
 
+func protectedImageURL(img *model.Image) string {
+	if img.AccessToken == "" {
+		generated := model.RandomString(24)
+		config.DB.Unscoped().Model(&model.Image{}).Where("id = ? AND access_token = ?", img.ID, "").Update("access_token", generated)
+		var stored model.Image
+		if err := config.DB.Unscoped().Select("access_token").First(&stored, img.ID).Error; err == nil && stored.AccessToken != "" {
+			img.AccessToken = stored.AccessToken
+		} else {
+			img.AccessToken = generated
+		}
+	}
+	return strings.TrimSuffix(config.Get().AppURL, "/") + "/api/v1/images/" + img.AccessToken + "/" + img.Key
+}
+
+// ImageAccessURL exposes public object URLs and per-image direct links for private images.
+func ImageAccessURL(img model.Image) string {
+	if img.Permission != 1 {
+		return protectedImageURL(&img)
+	}
+	if img.StrategyID == nil {
+		return ""
+	}
+	var strategy model.Strategy
+	if err := config.DB.First(&strategy, *img.StrategyID).Error; err != nil {
+		return ""
+	}
+	return buildImageURL(storage.GetStrategyURL(&strategy), img.Pathname())
+}
+
 // buildUploadResponse 构建上传成功的响应数据
-func buildUploadResponse(img model.Image, url string) gin.H {
+func buildUploadResponse(img model.Image) gin.H {
+	url := ImageAccessURL(img)
 	return gin.H{
 		"key":         img.Key,
 		"name":        img.Name,
@@ -225,13 +255,7 @@ func buildImageLinks(url string) model.ImageLinks {
 }
 
 func buildImageResponse(img model.Image) gin.H {
-	url := ""
-	if img.StrategyID != nil {
-		var strategy model.Strategy
-		if err := config.DB.First(&strategy, *img.StrategyID).Error; err == nil {
-			url = buildImageURL(storage.GetStrategyURL(&strategy), img.Pathname())
-		}
-	}
+	url := ImageAccessURL(img)
 	return gin.H{
 		"key":         img.Key,
 		"name":        img.Name,
@@ -245,6 +269,53 @@ func buildImageResponse(img model.Image) gin.H {
 		"sha1":        img.SHA1,
 		"links":       buildImageLinks(url),
 	}
+}
+
+func defaultImagePermission(userID *uint, albumID *uint) uint {
+	if albumID != nil {
+		var album model.Album
+		if err := config.DB.First(&album, *albumID).Error; err == nil {
+			return album.Permission
+		}
+	}
+	if userID == nil {
+		// Anonymous uploads cannot be retrieved through an owner's authenticated endpoint.
+		return 1
+	}
+	var user model.User
+	if err := config.DB.First(&user, *userID).Error; err != nil {
+		return 0
+	}
+	if raw, ok := user.Configs["default_permission"]; ok {
+		switch value := raw.(type) {
+		case float64:
+			return uint(value)
+		case int:
+			return uint(value)
+		case uint:
+			return value
+		case string:
+			if parsed, err := strconv.ParseUint(value, 10, 64); err == nil {
+				return uint(parsed)
+			}
+		}
+	}
+	return 0
+}
+
+func setImageObjectVisibility(img model.Image) error {
+	if img.StrategyID == nil {
+		return nil
+	}
+	var strategy model.Strategy
+	if err := config.DB.First(&strategy, *img.StrategyID).Error; err != nil {
+		return err
+	}
+	adapter, err := storage.Factory(&strategy)
+	if err != nil {
+		return err
+	}
+	return adapter.SetPublic(img.Pathname(), img.Permission == 1)
 }
 
 func (h *ImageHandler) Upload(c *gin.Context) {
@@ -316,10 +387,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	// 9. 获取策略访问 URL
-	strategyURL := storage.GetStrategyURL(strategy)
-
-	// 10. 解析图片宽高
+	// 9. 解析图片宽高
 	var imgWidth, imgHeight uint
 	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err == nil {
 		imgWidth = uint(cfg.Width)
@@ -355,29 +423,43 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 		}
 	}
 
+	permission := defaultImagePermission(userID, targetAlbumID)
+	if targetAlbumID == nil {
+		if requested, err := strconv.ParseUint(strings.TrimSpace(c.PostForm("permission")), 10, 64); err == nil && requested <= 1 {
+			permission = uint(requested)
+		}
+	}
 	image := model.Image{
-		UserID:     userID,
-		AlbumID:    targetAlbumID,
-		StrategyID: &strategy.ID,
-		Key:        generateKey(6),
-		Path:       dirPath,
-		Name:       uniqueName,
-		OriginName: file.Filename,
-		AliasName:  file.Filename,
-		Size:       math.Round(sizeKB*1000) / 1000,
-		Mimetype:   file.Header.Get("Content-Type"),
-		Extension:  ext,
-		MD5:        md5Sum,
-		SHA1:       sha1Sum,
-		Width:      imgWidth,
-		Height:     imgHeight,
-		UploadedIP: c.ClientIP(),
-		Tags:       tags,
+		UserID:      userID,
+		AlbumID:     targetAlbumID,
+		StrategyID:  &strategy.ID,
+		Key:         generateKey(6),
+		AccessToken: model.RandomString(24),
+		Path:        dirPath,
+		Name:        uniqueName,
+		OriginName:  file.Filename,
+		AliasName:   file.Filename,
+		Size:        math.Round(sizeKB*1000) / 1000,
+		Mimetype:    file.Header.Get("Content-Type"),
+		Extension:   ext,
+		MD5:         md5Sum,
+		SHA1:        sha1Sum,
+		Width:       imgWidth,
+		Height:      imgHeight,
+		Permission:  permission,
+		UploadedIP:  c.ClientIP(),
+		Tags:        tags,
 	}
 
 	if err := config.DB.Select("*").Create(&image).Error; err != nil {
 		_ = adapter.Delete(objectPath) // Best effort rollback after a database failure.
 		model.Fail(c, http.StatusInternalServerError, "数据库保存失败")
+		return
+	}
+	if err := adapter.SetPublic(objectPath, permission == 1); err != nil {
+		config.DB.Delete(&image)
+		_ = adapter.Delete(objectPath)
+		model.Fail(c, http.StatusInternalServerError, "图片权限设置失败: "+err.Error())
 		return
 	}
 
@@ -390,8 +472,7 @@ func (h *ImageHandler) Upload(c *gin.Context) {
 	}
 
 	// 12. 构建响应
-	imageURL := buildImageURL(strategyURL, objectPath)
-	model.Success(c, "上传成功", buildUploadResponse(image, imageURL))
+	model.Success(c, "上传成功", buildUploadResponse(image))
 }
 
 func resolveRequestedAlbumID(userID uint, value string) *uint {
@@ -441,6 +522,9 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 	if q := c.Query("q"); q != "" {
 		query = query.Where("origin_name LIKE ? OR alias_name LIKE ?", "%"+q+"%", "%"+q+"%")
 	}
+	if permission := c.Query("permission"); permission == "0" || permission == "1" {
+		query = query.Where("permission = ?", permission)
+	}
 
 	sort := c.DefaultQuery("sort", "newest")
 	switch sort {
@@ -466,6 +550,92 @@ func (h *ImageHandler) ListImages(c *gin.Context) {
 		"total":        total,
 		"last_page":    (total + int64(perPage) - 1) / int64(perPage),
 	})
+}
+
+func (h *ImageHandler) ShortLinkContent(c *gin.Context) {
+	key := c.Param("key")
+	accessToken := c.Param("access_token")
+	var img model.Image
+	if err := config.DB.Unscoped().Where("`key` = ? AND access_token = ?", key, accessToken).First(&img).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "图片不存在")
+		return
+	}
+	if img.StrategyID == nil {
+		model.Fail(c, http.StatusNotFound, "图片文件不存在")
+		return
+	}
+	var strategy model.Strategy
+	if err := config.DB.First(&strategy, *img.StrategyID).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "存储策略不存在")
+		return
+	}
+	adapter, err := storage.Factory(&strategy)
+	if err != nil {
+		model.Fail(c, http.StatusInternalServerError, "存储读取失败")
+		return
+	}
+	reader, err := adapter.Open(img.Pathname())
+	if err != nil {
+		model.Fail(c, http.StatusNotFound, "图片文件不存在")
+		return
+	}
+	defer func() { _ = reader.Close() }()
+	contentType := img.Mimetype
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	c.Header("Cache-Control", "private, max-age=300")
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.DataFromReader(http.StatusOK, -1, contentType, reader, nil)
+}
+
+func (h *ImageHandler) UpdatePermission(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	var input struct {
+		Keys       []string `json:"keys" binding:"required"`
+		Permission uint     `json:"permission"`
+	}
+	if err := c.ShouldBindJSON(&input); err != nil || len(input.Keys) == 0 || input.Permission > 1 {
+		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
+		return
+	}
+	var images []model.Image
+	if err := config.DB.Where("`key` IN ? AND user_id = ?", input.Keys, userID).Find(&images).Error; err != nil {
+		model.Fail(c, http.StatusInternalServerError, "读取图片失败")
+		return
+	}
+	for _, img := range images {
+		img.Permission = input.Permission
+		if err := setImageObjectVisibility(img); err != nil {
+			model.Fail(c, http.StatusInternalServerError, "图片权限设置失败: "+err.Error())
+			return
+		}
+	}
+	config.DB.Model(&model.Image{}).Where("`key` IN ? AND user_id = ?", input.Keys, userID).Update("permission", input.Permission)
+	model.Success(c, "权限更新成功", nil)
+}
+
+func (h *ImageHandler) ResetAccessToken(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	key := c.Param("key")
+
+	var img model.Image
+	if err := config.DB.Where("`key` = ? AND user_id = ?", key, userID).First(&img).Error; err != nil {
+		model.Fail(c, http.StatusNotFound, "图片不存在")
+		return
+	}
+	if img.Permission == 1 {
+		model.Fail(c, http.StatusUnprocessableEntity, "公开图片不需要重置私密链接")
+		return
+	}
+
+	img.AccessToken = model.RandomString(24)
+	if err := config.DB.Model(&img).Update("access_token", img.AccessToken).Error; err != nil {
+		model.Fail(c, http.StatusInternalServerError, "重置私密链接失败")
+		return
+	}
+
+	model.Success(c, "私密链接已重置", buildImageResponse(img))
 }
 
 func formatKBLimit(kb int) string {
@@ -659,6 +829,15 @@ func (h *ImageHandler) Move(c *gin.Context) {
 		model.Fail(c, http.StatusUnprocessableEntity, "参数错误")
 		return
 	}
+	var targetPermission *uint
+	if input.AlbumID != nil {
+		var album model.Album
+		if err := config.DB.Where("id = ? AND user_id = ?", *input.AlbumID, userID).First(&album).Error; err != nil {
+			model.Fail(c, http.StatusNotFound, "目标相册不存在")
+			return
+		}
+		targetPermission = &album.Permission
+	}
 
 	for _, key := range input.Keys {
 		var img model.Image
@@ -667,6 +846,14 @@ func (h *ImageHandler) Move(c *gin.Context) {
 		}
 
 		oldAlbumID := img.AlbumID
+		if targetPermission != nil && img.Permission != *targetPermission {
+			img.Permission = *targetPermission
+			if err := setImageObjectVisibility(img); err != nil {
+				model.Fail(c, http.StatusInternalServerError, "同步图片权限失败: "+err.Error())
+				return
+			}
+			config.DB.Model(&img).Update("permission", *targetPermission)
+		}
 		config.DB.Model(&img).Update("album_id", input.AlbumID)
 
 		if oldAlbumID != nil {
@@ -792,7 +979,7 @@ func (h *ImageHandler) GalleryAlbum(c *gin.Context) {
 	var images []model.Image
 	var total int64
 
-	query := config.DB.Model(&model.Image{}).Where("album_id = ?", albumID).Preload("Tags")
+	query := config.DB.Model(&model.Image{}).Where("album_id = ? AND permission = ?", albumID, 1).Preload("Tags")
 	query.Count(&total)
 	query.Order("created_at DESC").Offset((page - 1) * perPage).Limit(perPage).Find(&images)
 
@@ -1010,7 +1197,9 @@ func buildImageDTOs(images []model.Image) []ImageDTO {
 	result := make([]ImageDTO, len(images))
 	for i, img := range images {
 		dto := ImageDTO{Image: img}
-		if img.StrategyID != nil {
+		if img.Permission != 1 {
+			dto.URL = protectedImageURL(&img)
+		} else if img.StrategyID != nil {
 			if baseURL, ok := strategyURLs[*img.StrategyID]; ok {
 				if !strings.HasSuffix(baseURL, "/") {
 					baseURL += "/"

@@ -36,7 +36,6 @@ func (h *UserHandler) Profile(c *gin.Context) {
 		"album_num":     user.AlbumNum,
 		"url":           user.URL,
 		"avatar":        user.ToProfile().Avatar,
-		"token":         user.Token,
 		"status":        user.Status,
 		"group_id":      user.GroupID,
 		"configs":       user.Configs,
@@ -44,21 +43,31 @@ func (h *UserHandler) Profile(c *gin.Context) {
 	})
 }
 
-func (h *UserHandler) RefreshToken(c *gin.Context) {
+func (h *UserHandler) ImageReadToken(c *gin.Context) {
 	userID := c.GetUint("user_id")
 	var user model.User
 	if err := config.DB.First(&user, userID).Error; err != nil {
 		model.Fail(c, http.StatusNotFound, "用户不存在")
 		return
 	}
+	if len(user.Token) < model.ImageReadTokenLength {
+		user.Token = model.RandomString(model.ImageReadTokenLength)
+		if err := config.DB.Model(&user).Update("token", user.Token).Error; err != nil {
+			model.Fail(c, http.StatusInternalServerError, "生成图库只读令牌失败")
+			return
+		}
+	}
+	model.Success(c, "success", gin.H{"token": user.Token})
+}
 
-	newToken := model.RandomString(6)
-	if err := config.DB.Model(&user).Update("token", newToken).Error; err != nil {
-		model.Fail(c, http.StatusInternalServerError, "刷新失败")
+func (h *UserHandler) ResetImageReadToken(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	token := model.RandomString(model.ImageReadTokenLength)
+	if err := config.DB.Model(&model.User{}).Where("id = ?", userID).Update("token", token).Error; err != nil {
+		model.Fail(c, http.StatusInternalServerError, "重置图库只读令牌失败")
 		return
 	}
-
-	model.Success(c, "更新成功", gin.H{"token": newToken})
+	model.Success(c, "图库只读令牌已重置", gin.H{"token": token})
 }
 
 type UpdateProfileInput struct {

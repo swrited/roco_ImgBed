@@ -29,6 +29,14 @@ export const imagesApi = {
     return apiClient.put('/images/movement', { keys, album_id })
   },
 
+  updatePermission(keys: string[], permission: number) {
+    return apiClient.put('/images/permission', { keys, permission })
+  },
+
+  resetPrivateLink(key: string) {
+    return apiClient.put<Image>(`/images/${key}/access-token`)
+  },
+
   updateTags(key: string, tags: string[]) {
     return apiClient.put(`/images/${key}/tags`, { tags })
   },

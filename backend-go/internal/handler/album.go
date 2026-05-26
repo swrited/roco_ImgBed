@@ -5,7 +5,6 @@ import (
 
 	"lskypro-server/internal/config"
 	"lskypro-server/internal/model"
-	"lskypro-server/internal/service/storage"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -68,14 +67,7 @@ func albumCoverURL(album model.Album) string {
 }
 
 func imageURL(img model.Image) string {
-	if img.StrategyID == nil {
-		return ""
-	}
-	var strategy model.Strategy
-	if err := config.DB.First(&strategy, *img.StrategyID).Error; err != nil {
-		return ""
-	}
-	return buildImageURL(storage.GetStrategyURL(&strategy), img.Pathname())
+	return ImageAccessURL(img)
 }
 
 func validAlbumCoverID(userID uint, albumID uint, coverImageID *uint) *uint {
@@ -140,6 +132,17 @@ func (h *AlbumHandler) Update(c *gin.Context) {
 		return
 	}
 
+	var visibilityImages []model.Image
+	if input.Permission != album.Permission {
+		config.DB.Where("album_id = ? AND user_id = ?", album.ID, userID).Find(&visibilityImages)
+		for _, img := range visibilityImages {
+			img.Permission = input.Permission
+			if err := setImageObjectVisibility(img); err != nil {
+				model.Fail(c, http.StatusInternalServerError, "同步图片权限失败: "+err.Error())
+				return
+			}
+		}
+	}
 	result := config.DB.Model(&model.Album{}).Where("id = ? AND user_id = ?", id, userID).Updates(map[string]interface{}{
 		"name":           input.Name,
 		"intro":          input.Intro,
@@ -149,6 +152,9 @@ func (h *AlbumHandler) Update(c *gin.Context) {
 	if result.RowsAffected == 0 {
 		model.Fail(c, http.StatusNotFound, "相册不存在")
 		return
+	}
+	if len(visibilityImages) > 0 {
+		config.DB.Model(&model.Image{}).Where("album_id = ? AND user_id = ?", album.ID, userID).Update("permission", input.Permission)
 	}
 
 	model.Success(c, "更新成功", nil)

@@ -235,6 +235,35 @@ func ApiKeyAuth() gin.HandlerFunc {
 	}
 }
 
+// ImageReadTokenAuth restricts a user-scoped URL token to image read routes.
+func ImageReadTokenAuth() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		token := c.Param("token")
+		if len(token) < model.ImageReadTokenLength {
+			model.Fail(c, http.StatusUnauthorized, "图库只读令牌无效")
+			c.Abort()
+			return
+		}
+
+		var user model.User
+		if err := config.DB.Where("token = ?", token).First(&user).Error; err != nil {
+			model.Fail(c, http.StatusUnauthorized, "图库只读令牌无效")
+			c.Abort()
+			return
+		}
+		if user.Status == 0 {
+			model.Fail(c, http.StatusForbidden, "账号已被冻结")
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", user.ID)
+		c.Set("is_adminer", false)
+		c.Set("auth_type", "image_read_token")
+		c.Next()
+	}
+}
+
 // OptionalAuthOrApiKey 可选认证：优先尝试 JWT，其次 API Key，均不存在则放行
 func OptionalAuthOrApiKey(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -410,75 +439,4 @@ func systemConfigInt(key string, fallback int) int {
 		return fallback
 	}
 	return parsed
-}
-
-// TokenPathAuth 允许通过 URL 路径参数 :token 传递 API Key 进行认证
-func TokenPathAuth() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		token := c.Param("token")
-		if token == "" {
-			model.Fail(c, http.StatusUnauthorized, "缺少 token 参数")
-			c.Abort()
-			return
-		}
-
-		if len(token) <= 8 {
-			if c.Request.Method != http.MethodGet {
-				model.Fail(c, http.StatusForbidden, "短 Token 仅支持读取操作")
-				c.Abort()
-				return
-			}
-			
-			var user model.User
-			if err := config.DB.Where("token = ?", token).First(&user).Error; err != nil {
-				model.Fail(c, http.StatusUnauthorized, "短 Token 无效")
-				c.Abort()
-				return
-			}
-			if user.Status == 0 {
-				model.Fail(c, http.StatusForbidden, "账号已被冻结")
-				c.Abort()
-				return
-			}
-
-			c.Set("user_id", user.ID)
-			c.Set("is_adminer", user.IsAdminer)
-			c.Set("auth_type", "short_token")
-			c.Next()
-			return
-		}
-
-		var key model.ApiKey
-		if err := config.DB.Where("key = ? AND revoked_at IS NULL", token).First(&key).Error; err != nil {
-			model.Fail(c, http.StatusUnauthorized, "API Key 无效")
-			c.Abort()
-			return
-		}
-
-		// Verify user still exists and is active
-		var user model.User
-		if err := config.DB.First(&user, key.UserID).Error; err != nil {
-			model.Fail(c, http.StatusUnauthorized, "用户不存在")
-			c.Abort()
-			return
-		}
-		if user.Status == 0 {
-			model.Fail(c, http.StatusForbidden, "账号已被冻结")
-			c.Abort()
-			return
-		}
-
-		c.Set("user_id", key.UserID)
-		c.Set("is_adminer", user.IsAdminer)
-		c.Set("api_key_id", key.ID)
-		c.Set("auth_type", "api_key")
-		if !checkAPIKeyLimits(c, key.ID) {
-			return
-		}
-
-		// Update last_used
-		now := time.Now()
-		config.DB.Model(&key).Update("last_used", now)
-		c.Next()
-	}
 }

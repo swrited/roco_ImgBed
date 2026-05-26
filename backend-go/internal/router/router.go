@@ -61,27 +61,30 @@ func Setup(cfg *config.Config) *gin.Engine {
 			apiKeyOnly.GET("/images/adaptive", imgH.Adaptive)
 		}
 
-		// Upload (optional auth - supports guest, Bearer token, or api_key)
+		// Private image short links carry a per-image access token.
+		api.GET("/images/:access_token/:key", handler.NewImageHandler().ShortLinkContent)
+
+		// A user-scoped read token only retrieves that user's image data.
+		readTokenImages := api.Group("/t/:token")
+		readTokenImages.Use(middleware.ImageReadTokenAuth())
+		{
+			imgH := handler.NewImageHandler()
+			readTokenImages.GET("/images", imgH.ListImages)
+			readTokenImages.GET("/images/random", imgH.Random)
+			readTokenImages.GET("/images/adaptive", imgH.Adaptive)
+		}
+
+		// Upload supports guest, logged-in browser sessions, or API Key clients.
 		uploadGroup := api.Group("")
 		uploadGroup.Use(middleware.OptionalAuthOrApiKey(cfg))
 		{
 			uploadGroup.POST("/upload", handler.NewImageHandler().Upload)
 		}
 
-		// ======== 无认证 URL 路径参数路由（支持所有业务接口） ========
-		tokenAuthed := api.Group("/t/:token")
-		tokenAuthed.Use(middleware.TokenPathAuth())
-		// 单独为 upload 和 random/adaptive 加上，因为它们不在常规 authed 组里
-		tokenAuthed.POST("/upload", handler.NewImageHandler().Upload)
-		tokenAuthed.GET("/images/random", handler.NewImageHandler().Random)
-		tokenAuthed.GET("/images/adaptive", handler.NewImageHandler().Adaptive)
-		registerAuthedRoutes(tokenAuthed, authH)
-
 		// ======== 认证路由（支持 Bearer Token 或 API Key） ========
 		authed := api.Group("")
 		authed.Use(middleware.AuthOrApiKey(cfg))
 		registerAuthedRoutes(authed, authH)
-
 
 	}
 
@@ -100,7 +103,8 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	// Profile
 	g.GET("/profile", userH.Profile)
 	g.PUT("/profile", userH.UpdateProfile)
-	g.PUT("/profile/token", userH.RefreshToken)
+	g.GET("/image-read-token", userH.ImageReadToken)
+	g.PUT("/image-read-token", userH.ResetImageReadToken)
 
 	// Dashboard
 	g.GET("/dashboard", userH.Dashboard)
@@ -127,6 +131,8 @@ func registerAuthedRoutes(g *gin.RouterGroup, authH *handler.AuthHandler) {
 	g.DELETE("/images/:key", imgH.Delete)
 	g.PUT("/images/rename", imgH.Rename)
 	g.PUT("/images/movement", imgH.Move)
+	g.PUT("/images/permission", imgH.UpdatePermission)
+	g.PUT("/images/:key/access-token", imgH.ResetAccessToken)
 	g.PUT("/images/:key/tags", imgH.UpdateTags)
 
 	// AI image generation

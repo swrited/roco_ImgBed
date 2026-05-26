@@ -41,8 +41,12 @@ export const usersApi = {
     return apiClient.put<User>('/profile', data)
   },
 
-  refreshToken() {
-    return apiClient.put<{ token: string }>('/profile/token')
+  imageReadToken() {
+    return apiClient.get<{ token: string }>('/image-read-token')
+  },
+
+  resetImageReadToken() {
+    return apiClient.put<{ token: string }>('/image-read-token')
   },
 
   setStrategy(strategyId: number) {

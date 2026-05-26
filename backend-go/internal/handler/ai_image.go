@@ -159,16 +159,14 @@ func (h *AIImageHandler) Generate(c *gin.Context) {
 		model.Fail(c, http.StatusInternalServerError, "存储适配器创建失败: "+err.Error())
 		return
 	}
-	strategyURL := storage.GetStrategyURL(strategy)
-
 	responses := make([]gin.H, 0, len(generated))
 	for index, data := range generated {
-		image, url, err := saveGeneratedImage(c, adapter, strategy, strategyURL, album.ID, userID, data, input, index)
+		image, err := saveGeneratedImage(c, adapter, strategy, album.ID, album.Permission, userID, data, input, index)
 		if err != nil {
 			model.Fail(c, http.StatusInternalServerError, err.Error())
 			return
 		}
-		item := buildUploadResponse(image, url)
+		item := buildUploadResponse(image)
 		item["album_id"] = album.ID
 		item["width"] = image.Width
 		item["height"] = image.Height
@@ -548,21 +546,21 @@ func downloadGeneratedImage(imageURL string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(resp.Body, 25*1024*1024))
 }
 
-func saveGeneratedImage(c *gin.Context, adapter storage.Adapter, strategy *model.Strategy, strategyURL string, albumID uint, userID uint, data []byte, input aiImageRequest, index int) (model.Image, string, error) {
+func saveGeneratedImage(c *gin.Context, adapter storage.Adapter, strategy *model.Strategy, albumID uint, permission uint, userID uint, data []byte, input aiImageRequest, index int) (model.Image, error) {
 	if len(data) == 0 {
-		return model.Image{}, "", fmt.Errorf("生成图片为空")
+		return model.Image{}, fmt.Errorf("生成图片为空")
 	}
 
 	sizeKB := float64(len(data)) / 1024.0
 	if err := checkCapacity(userID, sizeKB); err != nil {
-		return model.Image{}, "", err
+		return model.Image{}, err
 	}
 
 	mimeType := http.DetectContentType(data)
 	ext := extensionFromMime(mimeType)
 	objectPath, dirPath, uniqueName := buildObjectPath(&userID, ext)
 	if err := adapter.Save(objectPath, data); err != nil {
-		return model.Image{}, "", fmt.Errorf("生成图片保存失败: %w", err)
+		return model.Image{}, fmt.Errorf("生成图片保存失败: %w", err)
 	}
 
 	md5Sum, sha1Sum := computeHashes(data)
@@ -574,32 +572,39 @@ func saveGeneratedImage(c *gin.Context, adapter storage.Adapter, strategy *model
 
 	originName := fmt.Sprintf("ai-%s-%d.%s", time.Now().Format("20060102150405"), index+1, ext)
 	image := model.Image{
-		UserID:     &userID,
-		AlbumID:    &albumID,
-		StrategyID: &strategy.ID,
-		Key:        generateKey(6),
-		Path:       dirPath,
-		Name:       uniqueName,
-		OriginName: originName,
-		AliasName:  originName,
-		Size:       math.Round(sizeKB*1000) / 1000,
-		Mimetype:   mimeType,
-		Extension:  ext,
-		MD5:        md5Sum,
-		SHA1:       sha1Sum,
-		Width:      width,
-		Height:     height,
-		UploadedIP: c.ClientIP(),
+		UserID:      &userID,
+		AlbumID:     &albumID,
+		StrategyID:  &strategy.ID,
+		Key:         generateKey(6),
+		AccessToken: model.RandomString(24),
+		Path:        dirPath,
+		Name:        uniqueName,
+		OriginName:  originName,
+		AliasName:   originName,
+		Size:        math.Round(sizeKB*1000) / 1000,
+		Mimetype:    mimeType,
+		Extension:   ext,
+		MD5:         md5Sum,
+		SHA1:        sha1Sum,
+		Width:       width,
+		Height:      height,
+		Permission:  permission,
+		UploadedIP:  c.ClientIP(),
 	}
 
 	if err := config.DB.Select("*").Create(&image).Error; err != nil {
 		_ = adapter.Delete(objectPath)
-		return model.Image{}, "", fmt.Errorf("数据库保存失败")
+		return model.Image{}, fmt.Errorf("数据库保存失败")
+	}
+	if err := adapter.SetPublic(objectPath, image.Permission == 1); err != nil {
+		config.DB.Delete(&image)
+		_ = adapter.Delete(objectPath)
+		return model.Image{}, fmt.Errorf("图片权限设置失败: %w", err)
 	}
 	config.DB.Model(&model.User{}).Where("id = ?", userID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
 	config.DB.Model(&model.Album{}).Where("id = ?", albumID).UpdateColumn("image_num", config.DB.Raw("image_num + 1"))
 
-	return image, buildImageURL(strategyURL, objectPath), nil
+	return image, nil
 }
 
 func getOrCreateAIAlbum(userID uint) (*model.Album, error) {

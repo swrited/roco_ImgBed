@@ -12,14 +12,15 @@ import { Copy, ExternalLink, Play, RotateCcw, Terminal } from 'lucide-vue-next'
 import { copyToClipboard } from '@/utils/clipboard'
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
+type AuthMode = 'none' | 'api-key' | 'read-token'
 
 interface Preset {
   label: string
   method: HttpMethod
   path: string
+  auth: AuthMode
   query?: string
   body?: string
-  authMode?: 'header' | 'path' | 'query'
 }
 
 interface ImagePreview {
@@ -32,21 +33,23 @@ interface ImagePreview {
 }
 
 const presets: Preset[] = [
-  { label: '健康检查', method: 'GET', path: '/api/ping' },
-  { label: '公开画廊', method: 'GET', path: '/api/v1/gallery', query: 'page=1&per_page=12' },
-  { label: '随机图', method: 'GET', path: '/api/v1/images/random' },
-  { label: '设备自适应图', method: 'GET', path: '/api/v1/images/adaptive' },
-  { label: 'AI 生图', method: 'POST', path: '/api/v1/ai/images', body: '{\n  "prompt": "一张极简科技风的紫色星空图片",\n  "aspect_ratio": "1:1",\n  "count": 1,\n  "prompt_optimizer": true\n}' },
-  { label: '图片列表', method: 'GET', path: '/api/v1/images', query: 'page=1&per_page=20' },
-  { label: '相册列表', method: 'GET', path: '/api/v1/albums' },
-  { label: '创建相册', method: 'POST', path: '/api/v1/albums', body: '{\n  "name": "测试相册",\n  "intro": "API 测试创建"\n}' },
+  { label: '健康检查', method: 'GET', path: '/api/ping', auth: 'none' },
+  { label: '短令牌图片列表', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images', auth: 'read-token', query: 'page=1&per_page=20' },
+  { label: '短令牌随机图', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images/random', auth: 'read-token' },
+  { label: '短令牌适配图', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images/adaptive', auth: 'read-token' },
+  { label: 'API Key 随机图', method: 'GET', path: '/api/v1/images/random', auth: 'api-key' },
+  { label: 'API Key 适配图', method: 'GET', path: '/api/v1/images/adaptive', auth: 'api-key' },
+  { label: 'AI 生图', method: 'POST', path: '/api/v1/ai/images', auth: 'api-key', body: '{\n  "prompt": "一张极简科技风的紫色星空图片",\n  "aspect_ratio": "1:1",\n  "count": 1,\n  "prompt_optimizer": true\n}' },
+  { label: '图片列表', method: 'GET', path: '/api/v1/images', auth: 'api-key', query: 'page=1&per_page=20' },
+  { label: '相册列表', method: 'GET', path: '/api/v1/albums', auth: 'api-key' },
+  { label: '创建相册', method: 'POST', path: '/api/v1/albums', auth: 'api-key', body: '{\n  "name": "测试相册",\n  "intro": "API 测试创建"\n}' },
 ]
 
 const baseUrl = ref(window.location.origin)
 const method = ref<HttpMethod>('GET')
 const path = ref('/api/ping')
+const authMode = ref<AuthMode>('none')
 const query = ref('')
-const authMode = ref<'header' | 'path' | 'query'>('header')
 const credential = ref('')
 const body = ref('')
 const sending = ref(false)
@@ -69,26 +72,16 @@ let cooldownTimer: number | undefined
 
 const fullUrl = computed(() => {
   const trimmedBase = baseUrl.value.replace(/\/+$/, '')
-  let normalizedPath = path.value.startsWith('/') ? path.value : `/${path.value}`
-  
-  if (!isHealthCheck.value && authMode.value === 'path' && credential.value.trim()) {
-    if (normalizedPath.startsWith('/api/v1/')) {
-      normalizedPath = `/api/v1/t/${credential.value.trim()}/` + normalizedPath.slice(8)
-    }
-  }
-
+  const rawPath = path.value.startsWith('/') ? path.value : `/${path.value}`
+  const normalizedPath = rawPath.replace('{READ_TOKEN}', credential.value.trim() || 'READ_TOKEN')
   const params = new URLSearchParams(query.value)
-  if (!isHealthCheck.value && authMode.value === 'query' && credential.value.trim()) {
-    params.set('api_key', credential.value.trim())
-  }
-  
   const qString = params.toString()
   return `${trimmedBase}${normalizedPath}${qString ? `?${qString}` : ''}`
 })
 
 const requestCommand = computed(() => {
   const lines = [`curl -X ${method.value} ${shellQuote(fullUrl.value)}`]
-  if (!isHealthCheck.value && authMode.value === 'header') {
+  if (authMode.value === 'api-key') {
     lines.push(`  -H ${shellQuote(`X-Api-Key: ${credential.value.trim() || 'YOUR_API_KEY'}`)}`)
   }
   if (method.value !== 'GET' && body.value.trim()) {
@@ -99,7 +92,7 @@ const requestCommand = computed(() => {
 })
 
 const isRandomImageRequest = computed(() => path.value.replace(/\/+$/, '').endsWith('/images/random'))
-const isHealthCheck = computed(() => normalizePath(path.value) === '/api/ping')
+const credentialLabel = computed(() => authMode.value === 'read-token' ? '图库只读令牌' : 'API Key')
 const sendsBody = computed(() => method.value !== 'GET')
 
 const bodyTemplates: Record<string, string> = {
@@ -116,12 +109,8 @@ const bodyTemplates: Record<string, string> = {
 function applyPreset(preset: Preset) {
   method.value = preset.method
   path.value = preset.path
+  authMode.value = preset.auth
   query.value = preset.query || ''
-  if (preset.authMode) {
-    authMode.value = preset.authMode
-  } else {
-    authMode.value = 'header'
-  }
   const template = preset.body || templateForRequest(preset.method, preset.path)
   body.value = template
   lastAutoBody.value = template
@@ -135,6 +124,7 @@ function applyPreset(preset: Preset) {
 function resetForm() {
   method.value = 'GET'
   path.value = '/api/ping'
+  authMode.value = 'none'
   query.value = ''
   body.value = ''
   lastAutoBody.value = ''
@@ -227,6 +217,11 @@ async function sendRequest() {
     toast.error(`请求过于频繁，请 ${cooldownRemaining.value} 秒后再试`)
     return
   }
+  if (authMode.value !== 'none' && !credential.value.trim()) {
+    toast.error(authMode.value === 'read-token' ? '请填写图库只读令牌' : '请填写 API Key')
+    return
+  }
+
   sending.value = true
   status.value = null
   elapsedMs.value = null
@@ -235,7 +230,7 @@ async function sendRequest() {
   imagePreview.value = null
 
   const headers: Record<string, string> = {}
-  if (!isHealthCheck.value && authMode.value === 'header' && credential.value.trim()) {
+  if (authMode.value === 'api-key') {
     headers['X-Api-Key'] = credential.value.trim()
   }
 
@@ -295,7 +290,7 @@ watch([method, path], syncBodyTemplate)
         <p class="text-sm font-medium text-purple-400">API Playground</p>
         <h1 class="mt-1 text-3xl font-semibold">API 测试台</h1>
         <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-          直接向本地或线上后端发起请求，所有业务接口统一使用 API Key 认证。
+          图库只读令牌用于获取个人图片列表、随机图和设备适配图；写入与管理操作使用 API Key。
         </p>
       </div>
       <Button variant="outline" @click="$router.push('/api-doc')">
@@ -418,23 +413,20 @@ watch([method, path], syncBodyTemplate)
             <div class="grid gap-4 lg:grid-cols-[180px_1fr]">
               <div class="space-y-2">
                 <Label>认证方式</Label>
-                <div v-if="isHealthCheck" class="flex h-10 items-center rounded-md border border-white/10 bg-[#09090d] px-3 text-sm text-slate-300">
-                  健康检查无需认证
-                </div>
-                <Select v-else v-model="authMode">
+                <Select v-model="authMode">
                   <SelectTrigger class="h-10 w-full border-white/10 bg-[#09090d] text-slate-100">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent class="border-white/10 bg-[#09090d] text-slate-100">
-                    <SelectItem value="header">Header (X-Api-Key)</SelectItem>
-                    <SelectItem value="path">URL 路径 (/t/{token})</SelectItem>
-                    <SelectItem value="query">URL 参数 (?api_key=...)</SelectItem>
+                    <SelectItem value="none">无需认证</SelectItem>
+                    <SelectItem value="read-token">图库只读令牌 (URL)</SelectItem>
+                    <SelectItem value="api-key">API Key (Header)</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div class="space-y-2">
-                <Label>API Key</Label>
-                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="isHealthCheck" placeholder="lsky-..." />
+                <Label>{{ credentialLabel }}</Label>
+                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="authMode === 'none'" :placeholder="authMode === 'read-token' ? '图库只读令牌' : 'lsky-...'" />
               </div>
             </div>
 

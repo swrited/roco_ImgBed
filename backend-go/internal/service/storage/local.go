@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +26,14 @@ func (a *LocalAdapter) Save(path string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(fullPath, data, 0644)
+}
+
+func (a *LocalAdapter) Open(path string) (io.ReadCloser, error) {
+	return os.Open(filepath.Join(a.root, path))
+}
+
+func (a *LocalAdapter) SetPublic(_ string, _ bool) error {
+	return nil
 }
 
 func (a *LocalAdapter) Delete(path string) error {

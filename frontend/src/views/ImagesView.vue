@@ -20,7 +20,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { toast } from 'vue-sonner'
-import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Link2, Check, Download, X, Hash, ArrowLeft, Plus, Info } from 'lucide-vue-next'
+import { MoreHorizontal, Copy, Trash2, Pencil, FolderInput, Search, Link2, Check, Download, X, Hash, ArrowLeft, Plus, Info, RefreshCw } from 'lucide-vue-next'
 import type { Album, Image, Tag } from '@/types'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -64,6 +64,7 @@ const quickAlbumPermission = ref('0')
 const creatingAlbum = ref(false)
 const linkFormat = ref<'url' | 'markdown' | 'html' | 'bbcode'>('url')
 const previewLinkFormat = ref<'url' | 'markdown' | 'html' | 'bbcode'>('url')
+const resettingPrivateLink = ref(false)
 
 const selectedImages = computed(() => {
   const selected = new Set(selectedKeys.value)
@@ -194,6 +195,23 @@ function copyFormattedLink(img: Image, format: 'url' | 'markdown' | 'html' | 'bb
   }
   copyToClipboard(text)
   toast.success('链接已复制到剪贴板')
+}
+
+async function resetPrivateLink() {
+  if (!previewImage.value || previewImage.value.permission === 1) return
+  if (!confirm('重置后，之前复制的私密图片链接将立即失效。确定继续吗？')) return
+  resettingPrivateLink.value = true
+  try {
+    const updated = await imagesApi.resetPrivateLink(previewImage.value.key)
+    previewImage.value = { ...previewImage.value, ...updated }
+    const index = images.value.findIndex((image) => image.key === updated.key)
+    if (index >= 0) images.value[index] = { ...images.value[index], ...updated }
+    toast.success('私密图片链接已重置')
+  } catch (e: any) {
+    toast.error(e.message || '重置私密链接失败')
+  } finally {
+    resettingPrivateLink.value = false
+  }
 }
 
 const showDeleteConfirmDialog = ref(false)
@@ -782,6 +800,15 @@ watch(
               </Select>
               <Button variant="outline" @click="copyFormattedLink(previewImage!, previewLinkFormat)">
                 <Copy class="mr-2 h-4 w-4" /> 复制链接
+              </Button>
+            </div>
+            <div v-if="previewImage.permission !== 1" class="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p class="mb-3 text-xs leading-5 text-muted-foreground">
+                私密图片链接可直接展示图片。链接泄露时可重置，之前的链接会立即失效。
+              </p>
+              <Button variant="outline" class="w-full" :disabled="resettingPrivateLink" @click="resetPrivateLink">
+                <RefreshCw class="mr-2 h-4 w-4" :class="{ 'animate-spin': resettingPrivateLink }" />
+                {{ resettingPrivateLink ? '正在重置...' : '重置私密链接' }}
               </Button>
             </div>
             <Button variant="destructive" class="w-full mt-2" @click="confirmDeletePreview(previewImage!)">

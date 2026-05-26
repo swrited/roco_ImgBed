@@ -3,7 +3,6 @@ export interface User {
   name: string
   email: string
   avatar?: string
-  token?: string
   capacity: number
   url?: string
   image_num: number
@@ -32,6 +31,7 @@ export interface Image {
   sha1: string
   width: number
   height: number
+  permission: number
   is_unhealthy: boolean
   uploaded_ip: string
   deleted_at?: string

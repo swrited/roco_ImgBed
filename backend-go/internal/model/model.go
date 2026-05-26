@@ -110,7 +110,7 @@ type User struct {
 	Email           string     `gorm:"column:email;type:varchar(255);uniqueIndex" json:"email"`
 	Password        string     `gorm:"column:password;type:varchar(255)" json:"-"`
 	RememberToken   string     `gorm:"column:remember_token;type:varchar(100)" json:"-"`
-	Token           string     `gorm:"column:token;type:varchar(16);uniqueIndex" json:"token"`
+	Token           string     `gorm:"column:token;type:varchar(64);uniqueIndex" json:"-"`
 	IsAdminer       bool       `gorm:"column:is_adminer;default:false" json:"is_adminer"`
 	Capacity        float64    `gorm:"column:capacity;type:decimal(20,2);default:0" json:"capacity"`
 	URL             string     `gorm:"column:url;type:varchar(255);default:''" json:"url"`
@@ -125,9 +125,11 @@ type User struct {
 	Images          []Image    `gorm:"foreignKey:UserID" json:"-"`
 }
 
+const ImageReadTokenLength = 20
+
 func (u *User) BeforeCreate(tx *gorm.DB) (err error) {
 	if u.Token == "" {
-		u.Token = RandomString(6)
+		u.Token = RandomString(ImageReadTokenLength)
 	}
 	return
 }
@@ -144,7 +146,6 @@ type UserProfile struct {
 	AlbumNum  uint64  `json:"album_num"`
 	URL       string  `json:"url"`
 	Avatar    string  `json:"avatar"`
-	Token     string  `json:"token"`
 }
 
 func (u *User) ToProfile() UserProfile {
@@ -158,7 +159,6 @@ func (u *User) ToProfile() UserProfile {
 		AlbumNum:  u.AlbumNum,
 		URL:       u.URL,
 		Avatar:    fmt.Sprintf("https://cravatar.cn/avatar/%x?s=96&d=mp&r=g", md5Hash(u.Email)),
-		Token:     u.Token,
 	}
 }
 
@@ -233,6 +233,7 @@ type Image struct {
 	GroupID     *uint          `gorm:"column:group_id;default:null" json:"group_id"`
 	StrategyID  *uint          `gorm:"column:strategy_id;default:null" json:"strategy_id"`
 	Key         string         `gorm:"column:key;type:varchar(64);uniqueIndex" json:"key"`
+	AccessToken string         `gorm:"column:access_token;type:varchar(64);default:''" json:"-"`
 	Path        string         `gorm:"column:path;type:varchar(255)" json:"path"`
 	Name        string         `gorm:"column:name;type:varchar(255)" json:"name"`
 	OriginName  string         `gorm:"column:origin_name;type:varchar(255)" json:"origin_name"`
@@ -244,6 +245,7 @@ type Image struct {
 	SHA1        string         `gorm:"column:sha1;type:varchar(128)" json:"sha1"`
 	Width       uint           `gorm:"column:width;default:0" json:"width"`
 	Height      uint           `gorm:"column:height;default:0" json:"height"`
+	Permission  uint           `gorm:"column:permission;default:0" json:"permission"`
 	IsUnhealthy bool           `gorm:"column:is_unhealthy;default:false" json:"is_unhealthy"`
 	UploadedIP  string         `gorm:"column:uploaded_ip;type:varchar(45);default:''" json:"uploaded_ip"`
 

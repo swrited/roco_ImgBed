@@ -56,6 +56,25 @@ func (a *COSAdapter) Save(path string, data []byte) error {
 	return err
 }
 
+func (a *COSAdapter) Open(path string) (io.ReadCloser, error) {
+	resp, err := a.client.Object.Get(context.Background(), path, nil)
+	if err != nil {
+		return nil, err
+	}
+	return resp.Body, nil
+}
+
+func (a *COSAdapter) SetPublic(path string, public bool) error {
+	acl := "private"
+	if public {
+		acl = "public-read"
+	}
+	_, err := a.client.Object.PutACL(context.Background(), path, &cos.ObjectPutACLOptions{
+		Header: &cos.ACLHeaderOptions{XCosACL: acl},
+	})
+	return err
+}
+
 func (a *COSAdapter) Delete(path string) error {
 	_, err := a.client.Object.Delete(context.Background(), path)
 	return err

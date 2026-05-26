@@ -2,6 +2,7 @@ package storage
 
 import (
 	"fmt"
+	"io"
 	"strings"
 
 	"lskypro-server/internal/config"
@@ -11,8 +12,10 @@ import (
 // Adapter 存储适配器接口
 type Adapter interface {
 	Save(path string, data []byte) error
+	Open(path string) (io.ReadCloser, error)
 	Delete(path string) error
 	Exists(path string) bool
+	SetPublic(path string, public bool) error
 	URL(path string) string
 }
 

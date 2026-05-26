@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"lskypro-server/internal/config"
+	basehandler "lskypro-server/internal/handler"
 	"lskypro-server/internal/model"
 	"lskypro-server/internal/service/storage"
 
@@ -124,7 +125,9 @@ func buildImageDTOs(images []model.Image) []imageDTO {
 	result := make([]imageDTO, len(images))
 	for i, img := range images {
 		dto := imageDTO{Image: img}
-		if img.StrategyID != nil {
+		if img.Permission != 1 {
+			dto.URL = basehandler.ImageAccessURL(img)
+		} else if img.StrategyID != nil {
 			if baseURL, ok := strategyURLs[*img.StrategyID]; ok {
 				if !strings.HasSuffix(baseURL, "/") {
 					baseURL += "/"

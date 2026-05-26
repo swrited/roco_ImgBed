@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type S3Adapter struct {
@@ -51,6 +53,30 @@ func (a *S3Adapter) Save(path string, data []byte) error {
 		Bucket: aws.String(a.bucket),
 		Key:    aws.String(path),
 		Body:   bytes.NewReader(data),
+	})
+	return err
+}
+
+func (a *S3Adapter) Open(path string) (io.ReadCloser, error) {
+	output, err := a.client.GetObject(context.Background(), &s3.GetObjectInput{
+		Bucket: aws.String(a.bucket),
+		Key:    aws.String(path),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return output.Body, nil
+}
+
+func (a *S3Adapter) SetPublic(path string, public bool) error {
+	acl := types.ObjectCannedACLPrivate
+	if public {
+		acl = types.ObjectCannedACLPublicRead
+	}
+	_, err := a.client.PutObjectAcl(context.Background(), &s3.PutObjectAclInput{
+		ACL:    acl,
+		Bucket: aws.String(a.bucket),
+		Key:    aws.String(path),
 	})
 	return err
 }
