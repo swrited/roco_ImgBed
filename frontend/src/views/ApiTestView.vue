@@ -32,8 +32,17 @@ interface ImagePreview {
   size?: number
 }
 
+const categories: Array<{ value: AuthMode; label: string; desc: string }> = [
+  { value: 'none', label: '公开 API', desc: '无需认证即可读取的公开数据' },
+  { value: 'api-key', label: 'API Key 调用', desc: '读取账户数据与执行写入操作' },
+  { value: 'read-token', label: '短令牌调用', desc: '仅用于读取个人图库图片' },
+]
+
 const presets: Preset[] = [
   { label: '健康检查', method: 'GET', path: '/api/ping', auth: 'none' },
+  { label: '公开设置', method: 'GET', path: '/api/v1/settings/public', auth: 'none' },
+  { label: '公开画廊', method: 'GET', path: '/api/v1/gallery', auth: 'none', query: 'page=1' },
+  { label: '公开存储策略', method: 'GET', path: '/api/v1/strategies', auth: 'none' },
   { label: '短令牌图片列表', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images', auth: 'read-token', query: 'page=1&per_page=20' },
   { label: '短令牌随机图', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images/random', auth: 'read-token' },
   { label: '短令牌适配图', method: 'GET', path: '/api/v1/t/{READ_TOKEN}/images/adaptive', auth: 'read-token' },
@@ -50,7 +59,8 @@ const method = ref<HttpMethod>('GET')
 const path = ref('/api/ping')
 const authMode = ref<AuthMode>('none')
 const query = ref('')
-const credential = ref('')
+const apiKey = ref('')
+const readToken = ref('')
 const body = ref('')
 const sending = ref(false)
 const cooldownRemaining = ref(0)
@@ -73,7 +83,7 @@ let cooldownTimer: number | undefined
 const fullUrl = computed(() => {
   const trimmedBase = baseUrl.value.replace(/\/+$/, '')
   const rawPath = path.value.startsWith('/') ? path.value : `/${path.value}`
-  const normalizedPath = rawPath.replace('{READ_TOKEN}', credential.value.trim() || 'READ_TOKEN')
+  const normalizedPath = rawPath.replace('{READ_TOKEN}', readToken.value.trim() || 'READ_TOKEN')
   const params = new URLSearchParams(query.value)
   const qString = params.toString()
   return `${trimmedBase}${normalizedPath}${qString ? `?${qString}` : ''}`
@@ -82,7 +92,7 @@ const fullUrl = computed(() => {
 const requestCommand = computed(() => {
   const lines = [`curl -X ${method.value} ${shellQuote(fullUrl.value)}`]
   if (authMode.value === 'api-key') {
-    lines.push(`  -H ${shellQuote(`X-Api-Key: ${credential.value.trim() || 'YOUR_API_KEY'}`)}`)
+    lines.push(`  -H ${shellQuote(`X-Api-Key: ${apiKey.value.trim() || 'YOUR_API_KEY'}`)}`)
   }
   if (method.value !== 'GET' && body.value.trim()) {
     lines.push(`  -H ${shellQuote('Content-Type: application/json')}`)
@@ -92,7 +102,19 @@ const requestCommand = computed(() => {
 })
 
 const isRandomImageRequest = computed(() => path.value.replace(/\/+$/, '').endsWith('/images/random'))
+const visiblePresets = computed(() => presets.filter((preset) => preset.auth === authMode.value))
+const activeCategoryDescription = computed(() => categories.find((category) => category.value === authMode.value)?.desc || '')
 const credentialLabel = computed(() => authMode.value === 'read-token' ? '图库只读令牌' : 'API Key')
+const activeCredential = computed({
+  get: () => authMode.value === 'read-token' ? readToken.value : apiKey.value,
+  set: (value: string) => {
+    if (authMode.value === 'read-token') {
+      readToken.value = value
+    } else {
+      apiKey.value = value
+    }
+  },
+})
 const sendsBody = computed(() => method.value !== 'GET')
 
 const bodyTemplates: Record<string, string> = {
@@ -121,18 +143,14 @@ function applyPreset(preset: Preset) {
   imagePreview.value = null
 }
 
+function selectCategory(category: AuthMode) {
+  authMode.value = category
+  const preset = presets.find((item) => item.auth === category)
+  if (preset) applyPreset(preset)
+}
+
 function resetForm() {
-  method.value = 'GET'
-  path.value = '/api/ping'
-  authMode.value = 'none'
-  query.value = ''
-  body.value = ''
-  lastAutoBody.value = ''
-  status.value = null
-  elapsedMs.value = null
-  responseText.value = ''
-  errorText.value = ''
-  imagePreview.value = null
+  selectCategory(authMode.value)
 }
 
 function applyRandomFilters() {
@@ -217,8 +235,12 @@ async function sendRequest() {
     toast.error(`请求过于频繁，请 ${cooldownRemaining.value} 秒后再试`)
     return
   }
-  if (authMode.value !== 'none' && !credential.value.trim()) {
-    toast.error(authMode.value === 'read-token' ? '请填写图库只读令牌' : '请填写 API Key')
+  if (authMode.value === 'api-key' && !apiKey.value.trim()) {
+    toast.error('请填写 API Key')
+    return
+  }
+  if (authMode.value === 'read-token' && !readToken.value.trim()) {
+    toast.error('请填写图库只读令牌')
     return
   }
 
@@ -231,7 +253,7 @@ async function sendRequest() {
 
   const headers: Record<string, string> = {}
   if (authMode.value === 'api-key') {
-    headers['X-Api-Key'] = credential.value.trim()
+    headers['X-Api-Key'] = apiKey.value.trim()
   }
 
   const options: RequestInit = { method: method.value, headers }
@@ -303,12 +325,30 @@ watch([method, path], syncBodyTemplate)
         <Card class="border-white/10 bg-[#0f0f15] text-slate-100">
           <CardHeader>
             <CardTitle class="text-base">请求配置</CardTitle>
-            <CardDescription class="text-slate-400">选择预设或手动填写 URL、认证和请求体</CardDescription>
+            <CardDescription class="text-slate-400">先选择调用类型，再选择同一认证范围内的接口</CardDescription>
           </CardHeader>
           <CardContent class="space-y-5">
+            <div class="space-y-2">
+              <div class="inline-flex w-fit max-w-full flex-wrap rounded-xl border border-white/10 bg-white/[0.03] p-1">
+                <Button
+                  v-for="category in categories"
+                  :key="category.value"
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  class="h-8 px-3"
+                  :class="authMode === category.value ? 'bg-violet-500/15 text-violet-200' : 'text-muted-foreground'"
+                  @click="selectCategory(category.value)"
+                >
+                  {{ category.label }}
+                </Button>
+              </div>
+              <p class="text-xs text-slate-400">{{ activeCategoryDescription }}</p>
+            </div>
+
             <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               <Button
-                v-for="preset in presets"
+                v-for="preset in visiblePresets"
                 :key="preset.label"
                 type="button"
                 variant="outline"
@@ -413,20 +453,19 @@ watch([method, path], syncBodyTemplate)
             <div class="grid gap-4 lg:grid-cols-[180px_1fr]">
               <div class="space-y-2">
                 <Label>认证方式</Label>
-                <Select v-model="authMode">
-                  <SelectTrigger class="h-10 w-full border-white/10 bg-[#09090d] text-slate-100">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent class="border-white/10 bg-[#09090d] text-slate-100">
-                    <SelectItem value="none">无需认证</SelectItem>
-                    <SelectItem value="read-token">图库只读令牌 (URL)</SelectItem>
-                    <SelectItem value="api-key">API Key (Header)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div class="flex h-10 items-center rounded-md border border-white/10 bg-[#09090d] px-3 text-sm text-slate-300">
+                  {{ authMode === 'api-key' ? 'API Key (Header)' : authMode === 'read-token' ? '图库只读令牌 (URL)' : '无需认证' }}
+                </div>
               </div>
-              <div class="space-y-2">
+              <div v-if="authMode !== 'none'" class="space-y-2">
                 <Label>{{ credentialLabel }}</Label>
-                <Input v-model="credential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500 disabled:opacity-60" :disabled="authMode === 'none'" :placeholder="authMode === 'read-token' ? '图库只读令牌' : 'lsky-...'" />
+                <Input v-model="activeCredential" class="h-10 border-white/10 bg-[#09090d] font-mono text-slate-100 placeholder:text-slate-500" :placeholder="authMode === 'read-token' ? '图库只读令牌' : 'lsky-...'" />
+              </div>
+              <div v-else class="space-y-2">
+                <Label>凭据</Label>
+                <div class="flex h-10 items-center rounded-md border border-emerald-500/20 bg-emerald-500/5 px-3 text-sm text-emerald-200">
+                  此类接口无需填写凭据
+                </div>
               </div>
             </div>
 

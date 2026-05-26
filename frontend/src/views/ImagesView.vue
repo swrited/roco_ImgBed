@@ -89,7 +89,7 @@ async function loadImages(page = 1) {
   loading.value = true
   selectedKeys.value = []
   try {
-    const params: Record<string, any> = { page }
+    const params: Record<string, any> = { page, per_page: 40 }
     if (keyword.value.trim()) params.q = keyword.value.trim()
     if (filterAlbumId.value && filterAlbumId.value !== '__all__') params.album_id = filterAlbumId.value
     if (filterTagId.value && filterTagId.value !== '__all__') params.tag_id = filterTagId.value
@@ -455,17 +455,19 @@ watch(
         <h1 class="text-2xl font-semibold">{{ currentAlbumTitle }}</h1>
         <p class="mt-1 text-sm text-muted-foreground">可以通过标签继续筛选当前图片列表。</p>
       </div>
-      <div class="flex items-center gap-2" v-if="selectedKeys.length > 0">
-        <Badge variant="secondary">{{ selectedKeys.length }} 张已选</Badge>
-        <Button variant="outline" size="sm" @click="openLinksDialog">
-          <Link2 class="mr-1 h-4 w-4" /> 生成链接
-        </Button>
-        <Button variant="outline" size="sm" @click="openMove">
-          <FolderInput class="mr-1 h-4 w-4" /> 移动
-        </Button>
-        <Button variant="destructive" size="sm" @click="deleteImages(selectedKeys)">
-          <Trash2 class="mr-1 h-4 w-4" /> 删除
-        </Button>
+      <div class="flex flex-wrap items-center gap-2">
+        <template v-if="selectedKeys.length > 0">
+          <Badge variant="secondary">{{ selectedKeys.length }} 张已选</Badge>
+          <Button variant="outline" size="sm" @click="openLinksDialog">
+            <Link2 class="mr-1 h-4 w-4" /> 生成链接
+          </Button>
+          <Button variant="outline" size="sm" @click="openMove">
+            <FolderInput class="mr-1 h-4 w-4" /> 移动
+          </Button>
+          <Button variant="destructive" size="sm" @click="deleteImages(selectedKeys)">
+            <Trash2 class="mr-1 h-4 w-4" /> 删除
+          </Button>
+        </template>
       </div>
     </div>
 
@@ -519,20 +521,26 @@ watch(
     <p class="text-sm text-muted-foreground mb-4">共 {{ total }} 张图片</p>
 
     <!-- Loading skeleton -->
-    <div v-if="loading" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      <div v-for="i in 8" :key="i" class="aspect-square bg-muted animate-pulse rounded-lg" />
+    <div v-if="loading" class="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+      <div
+        v-for="i in 10"
+        :key="i"
+        class="aspect-[4/3] rounded-lg bg-muted animate-pulse"
+      />
     </div>
 
-    <!-- Image grid -->
-    <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <!-- Row-ordered image grid -->
+    <div v-else class="grid grid-cols-2 items-start gap-3 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
       <Card
         v-for="img in images" :key="img.key"
-        class="cursor-zoom-in group overflow-hidden transition-all !ring-transparent hover:!ring-white/20 hover:!ring-1"
+        class="w-full cursor-zoom-in group overflow-hidden transition-all !ring-transparent hover:!ring-white/20 hover:!ring-1"
         :class="selectedKeys.includes(img.key) ? 'scale-[0.985] shadow-2xl shadow-primary/25 bg-primary/10 !ring-primary/50' : ''"
         @click="openPreview(img)"
       >
-        <div class="relative aspect-square overflow-hidden rounded-t-lg">
-          <img :src="img.url" :alt="imageDisplayName(img)" class="h-full w-full object-cover" loading="lazy" />
+        <div
+          class="relative aspect-[4/3] overflow-hidden rounded-t-lg bg-white/[0.03]"
+        >
+          <img :src="img.url" :alt="imageDisplayName(img)" class="absolute inset-0 h-full w-full object-cover" loading="lazy" />
           <div
             v-if="selectedKeys.includes(img.key)"
             class="pointer-events-none absolute inset-0 z-10 bg-black/35"

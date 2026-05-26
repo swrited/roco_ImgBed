@@ -2,22 +2,18 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { albumsApi } from '@/api/albums'
-import { imagesApi } from '@/api/images'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'vue-sonner'
-import { Plus, FolderOpen, Pencil, Trash2, ChevronRight, Inbox, Image, List, Lock, Globe2 } from 'lucide-vue-next'
-import type { Album, Image as UserImage } from '@/types'
+import { Plus, FolderOpen, Pencil, Trash2, ChevronRight, Inbox, Lock, Globe2, Images, CalendarDays } from 'lucide-vue-next'
+import type { Album } from '@/types'
 
 const router = useRouter()
 const albums = ref<Album[]>([])
@@ -26,10 +22,6 @@ const editingAlbum = ref<Album | null>(null)
 const albumName = ref('')
 const albumIntro = ref('')
 const albumPermission = ref('0')
-const displayMode = ref<'cover' | 'name'>('cover')
-const albumCoverId = ref<string>('__auto__')
-const coverImages = ref<UserImage[]>([])
-const coverLoading = ref(false)
 
 async function loadAlbums() {
   try {
@@ -45,32 +37,15 @@ function openCreate() {
   albumName.value = ''
   albumIntro.value = ''
   albumPermission.value = '0'
-  albumCoverId.value = '__auto__'
-  coverImages.value = []
   showDialog.value = true
 }
 
-async function openEdit(album: Album) {
+function openEdit(album: Album) {
   editingAlbum.value = album
   albumName.value = album.name
   albumIntro.value = album.intro || ''
   albumPermission.value = String(album.permission || '0')
-  albumCoverId.value = album.cover_image_id ? String(album.cover_image_id) : '__auto__'
-  await loadAlbumCoverImages(album.id)
   showDialog.value = true
-}
-
-async function loadAlbumCoverImages(albumId: number) {
-  coverLoading.value = true
-  try {
-    const res = await imagesApi.list({ album_id: albumId, per_page: 100 })
-    coverImages.value = res?.data ?? []
-  } catch {
-    coverImages.value = []
-    toast.error('加载封面图片失败')
-  } finally {
-    coverLoading.value = false
-  }
 }
 
 async function handleSubmit() {
@@ -84,7 +59,6 @@ async function handleSubmit() {
         name: albumName.value,
         intro: albumIntro.value,
         permission: Number(albumPermission.value),
-        cover_image_id: albumCoverId.value === '__auto__' ? null : Number(albumCoverId.value),
       })
       toast.success('更新成功')
     } else {
@@ -113,12 +87,18 @@ async function deleteAlbum(id: number) {
   }
 }
 
-function goToImages(albumId: number) {
-  router.push({ name: 'library.images', query: { album_id: albumId } })
+function goToImages(albumId?: number) {
+  router.push({
+    name: 'library.images',
+    query: albumId === undefined ? {} : { album_id: albumId },
+  })
 }
 
-function permissionLabel(album: Album) {
-  return album.permission === 1 ? '公开相册' : '私密相册'
+function formatCreatedAt(value: string) {
+  if (!value) return '创建时间未知'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '创建时间未知'
+  return `创建于 ${date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })}`
 }
 
 onMounted(loadAlbums)
@@ -126,149 +106,129 @@ onMounted(loadAlbums)
 
 <template>
   <div>
-    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="inline-flex w-fit rounded-xl border border-white/10 bg-white/[0.03] p-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1.5"
-          :class="displayMode === 'cover' ? 'bg-violet-500/15 text-violet-200' : 'text-muted-foreground'"
-          @click="displayMode = 'cover'"
-        >
-          <Image class="h-3.5 w-3.5" /> 封面
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          class="h-8 gap-1.5"
-          :class="displayMode === 'name' ? 'bg-violet-500/15 text-violet-200' : 'text-muted-foreground'"
-          @click="displayMode = 'name'"
-        >
-          <List class="h-3.5 w-3.5" /> 名称
-        </Button>
+    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="text-xs font-semibold uppercase text-violet-400">Library</p>
+        <h1 class="mt-1.5 text-3xl font-semibold tracking-tight">我的图库</h1>
+        <p class="mt-1 text-sm text-muted-foreground">选择相册进入图片浏览，未指定相册的图片会单独归档。</p>
       </div>
       <Button @click="openCreate">
         <Plus class="mr-2 h-4 w-4" /> 新建相册
       </Button>
     </div>
 
-    <div v-if="displayMode === 'cover'" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="mb-6 grid gap-3 sm:grid-cols-2">
       <Card
-        class="group cursor-pointer overflow-hidden border-dashed border-violet-400/25 bg-violet-500/[0.04] transition-colors hover:border-violet-400/50 hover:bg-violet-500/10"
-        @click="goToImages(0)"
+        class="group cursor-pointer border-violet-400/40 bg-violet-500/[0.1] transition-colors hover:border-violet-300/70 hover:bg-violet-500/15"
+        role="button"
+        tabindex="0"
+        @click="goToImages()"
+        @keydown.enter.prevent="goToImages()"
+        @keydown.space.prevent="goToImages()"
       >
-        <div class="flex aspect-[4/3] items-center justify-center bg-violet-500/10">
-          <Inbox class="h-14 w-14 text-violet-300" />
-        </div>
-        <CardHeader class="py-4">
+        <CardHeader class="py-5">
           <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <CardTitle class="truncate text-lg">未分类图片</CardTitle>
-              <p class="text-sm text-muted-foreground">未选择相册的上传默认在这里</p>
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="rounded-lg bg-violet-500/20 p-2.5 text-violet-200">
+                <Images class="h-6 w-6" />
+              </div>
+              <div class="min-w-0">
+                <CardTitle class="text-base">全部图片</CardTitle>
+                <p class="mt-1 text-sm text-muted-foreground">按上传顺序查看所有图片</p>
+              </div>
             </div>
-            <ChevronRight class="ml-1 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+            <ChevronRight class="h-4 w-4 shrink-0 text-violet-300" />
           </div>
         </CardHeader>
       </Card>
 
       <Card
-        v-for="album in albums"
-        :key="album.id"
-        class="group flex h-full cursor-pointer flex-col overflow-hidden transition-colors hover:border-primary/50"
-        @click="goToImages(album.id)"
+        class="group cursor-pointer border-dashed border-white/15 bg-white/[0.03] transition-colors hover:border-violet-400/45 hover:bg-white/[0.06]"
+        role="button"
+        tabindex="0"
+        @click="goToImages(0)"
+        @keydown.enter.prevent="goToImages(0)"
+        @keydown.space.prevent="goToImages(0)"
       >
-        <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-white/[0.04]">
-          <img v-if="album.cover_url" :src="album.cover_url" :alt="album.name" class="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-          <div v-else class="flex h-full w-full items-center justify-center">
-            <FolderOpen class="h-14 w-14 text-primary" />
-          </div>
-          <div class="absolute left-3 top-3">
-            <Badge :class="album.permission === 1 ? 'border-emerald-400/40 bg-emerald-500/20 text-emerald-100' : 'border-violet-300/40 bg-violet-500/25 text-violet-100'">
-              <component :is="album.permission === 1 ? Globe2 : Lock" class="mr-1 h-3 w-3" />
-              {{ permissionLabel(album) }}
-            </Badge>
-          </div>
-        </div>
-        <CardHeader class="py-4">
+        <CardHeader class="py-5">
           <div class="flex items-center justify-between gap-3">
-            <div class="min-w-0">
-              <CardTitle class="truncate text-lg">{{ album.name }}</CardTitle>
-              <p class="text-sm text-muted-foreground">{{ album.image_num }} 张图片</p>
+            <div class="flex min-w-0 items-center gap-3">
+              <div class="rounded-lg bg-white/[0.06] p-2.5 text-slate-200">
+                <Inbox class="h-6 w-6" />
+              </div>
+              <div class="min-w-0">
+                <CardTitle class="text-base">未分类图片</CardTitle>
+                <p class="mt-1 text-sm text-muted-foreground">未选择相册的上传图片</p>
+              </div>
             </div>
-            <div class="flex shrink-0 items-center gap-1">
-              <Button variant="ghost" size="icon" @click.stop="openEdit(album)">
-                <Pencil class="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" @click.stop="deleteAlbum(album.id)">
-                <Trash2 class="h-4 w-4 text-destructive" />
-              </Button>
-              <ChevronRight class="ml-1 h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
-            </div>
+            <ChevronRight class="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
           </div>
         </CardHeader>
-        <CardContent v-if="album.intro" class="pt-0">
-          <p class="line-clamp-2 text-sm text-muted-foreground">{{ album.intro }}</p>
-        </CardContent>
       </Card>
     </div>
 
-    <div v-else class="space-y-2">
-      <Card
-        class="group cursor-pointer border-dashed border-violet-400/25 bg-violet-500/[0.04] transition-colors hover:border-violet-400/50 hover:bg-violet-500/10"
-        @click="goToImages(0)"
-      >
-        <CardHeader class="py-4">
-          <div class="flex items-center justify-between gap-3">
-            <div class="flex min-w-0 items-center gap-3">
-              <Inbox class="h-7 w-7 shrink-0 text-violet-300" />
-              <div class="min-w-0">
-                <CardTitle class="truncate text-base">未分类图片</CardTitle>
-                <p class="text-sm text-muted-foreground">未选择相册的上传默认在这里</p>
-              </div>
-            </div>
-            <ChevronRight class="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-          </div>
-        </CardHeader>
-      </Card>
+    <div class="mb-3 flex items-center justify-between">
+      <h2 class="text-base font-semibold">相册管理</h2>
+      <p class="text-xs text-muted-foreground">{{ albums.length }} 个相册</p>
+    </div>
 
+    <div class="grid gap-3 lg:grid-cols-2">
       <Card
         v-for="album in albums"
         :key="album.id"
-        class="group cursor-pointer transition-colors hover:border-primary/50"
+        class="group cursor-pointer transition-colors hover:border-primary/50 hover:bg-white/[0.025]"
+        role="button"
+        tabindex="0"
         @click="goToImages(album.id)"
+        @keydown.enter.prevent="goToImages(album.id)"
+        @keydown.space.prevent="goToImages(album.id)"
       >
-        <CardHeader class="py-4">
-          <div class="flex items-center justify-between gap-3">
+        <CardHeader class="gap-4 py-4">
+          <div class="flex items-start justify-between gap-3">
             <div class="flex min-w-0 items-center gap-3">
-              <FolderOpen class="h-7 w-7 shrink-0 text-primary" />
+              <div class="rounded-lg bg-violet-500/10 p-2.5">
+                <FolderOpen class="h-6 w-6 shrink-0 text-primary" />
+              </div>
               <div class="min-w-0">
-                <div class="flex min-w-0 items-center gap-2">
+                <div class="flex min-w-0 flex-wrap items-center gap-2">
                   <CardTitle class="truncate text-base">{{ album.name }}</CardTitle>
                   <Badge :class="album.permission === 1 ? 'border-emerald-400/40 bg-emerald-500/15 text-emerald-100' : 'border-violet-300/40 bg-violet-500/20 text-violet-100'">
                     <component :is="album.permission === 1 ? Globe2 : Lock" class="mr-1 h-3 w-3" />
                     {{ album.permission === 1 ? '公开' : '私密' }}
                   </Badge>
                 </div>
-                <p class="text-sm text-muted-foreground">{{ album.image_num }} 张图片</p>
+                <p class="mt-1 line-clamp-1 text-sm text-muted-foreground">
+                  {{ album.intro || '暂无相册简介' }}
+                </p>
               </div>
             </div>
+            <ChevronRight class="mt-3 h-4 w-4 shrink-0 text-muted-foreground transition-colors group-hover:text-primary" />
+          </div>
+          <div class="flex flex-wrap items-center justify-between gap-3 border-t border-white/[0.06] pt-3 text-xs text-muted-foreground">
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+              <span class="flex items-center gap-1.5">
+                <Images class="h-3.5 w-3.5" /> {{ album.image_num }} 张图片
+              </span>
+              <span class="flex items-center gap-1.5">
+                <CalendarDays class="h-3.5 w-3.5" /> {{ formatCreatedAt(album.created_at) }}
+              </span>
+            </div>
             <div class="flex shrink-0 items-center gap-1">
-              <Button variant="ghost" size="icon" @click.stop="openEdit(album)">
+              <Button variant="ghost" size="icon" class="h-8 w-8" title="编辑相册" @click.stop="openEdit(album)">
                 <Pencil class="h-4 w-4" />
               </Button>
-              <Button variant="ghost" size="icon" @click.stop="deleteAlbum(album.id)">
+              <Button variant="ghost" size="icon" class="h-8 w-8" title="删除相册" @click.stop="deleteAlbum(album.id)">
                 <Trash2 class="h-4 w-4 text-destructive" />
               </Button>
-              <ChevronRight class="ml-1 h-4 w-4 text-muted-foreground transition-colors group-hover:text-primary" />
             </div>
           </div>
         </CardHeader>
       </Card>
     </div>
 
-    <div v-if="albums.length === 0" class="text-center py-12 text-muted-foreground">
+    <div v-if="albums.length === 0" class="py-10 text-center text-muted-foreground">
       <FolderOpen class="mx-auto h-12 w-12 mb-4 opacity-50" />
-      <p>暂无相册，点击上方按钮创建</p>
+      <p>还没有自定义相册，可以新建相册进行分类。</p>
     </div>
 
     <!-- Create/Edit Dialog -->
@@ -306,54 +266,6 @@ onMounted(loadAlbums)
                 <Globe2 class="h-4 w-4" />
                 <span class="text-sm font-medium">公开相册</span>
               </label>
-            </div>
-          </div>
-          <div v-if="editingAlbum" class="space-y-3">
-            <div class="flex items-center justify-between gap-3">
-              <Label>相册封面</Label>
-              <Select v-model="albumCoverId">
-                <SelectTrigger class="w-44">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__auto__">自动使用最新图片</SelectItem>
-                  <SelectItem v-for="img in coverImages" :key="img.id" :value="String(img.id)">
-                    {{ img.alias_name || img.origin_name || img.name }}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div v-if="coverLoading" class="grid grid-cols-4 gap-2">
-              <div v-for="i in 4" :key="i" class="aspect-[4/3] rounded-xl bg-white/[0.06] animate-pulse" />
-            </div>
-            <div v-else-if="coverImages.length > 0" class="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto pr-1 sm:grid-cols-4">
-              <button
-                type="button"
-                class="group relative overflow-hidden rounded-xl border bg-black/30 text-left transition"
-                :class="albumCoverId === '__auto__' ? 'border-violet-400/50' : 'border-white/10 hover:border-violet-400/45'"
-                @click="albumCoverId = '__auto__'"
-              >
-                <div class="flex aspect-[4/3] items-center justify-center bg-violet-500/10">
-                  <Image class="h-7 w-7 text-violet-300" />
-                </div>
-                <div class="absolute inset-x-0 bottom-0 bg-black/70 px-2 py-1 text-xs text-white">自动</div>
-              </button>
-              <button
-                v-for="img in coverImages"
-                :key="img.key"
-                type="button"
-                class="group relative aspect-[4/3] overflow-hidden rounded-xl border bg-black/30 transition"
-                :class="albumCoverId === String(img.id) ? 'border-violet-300 ring-2 ring-violet-400/45' : 'border-white/10 hover:border-violet-400/45'"
-                @click="albumCoverId = String(img.id)"
-              >
-                <img :src="img.url" :alt="img.alias_name || img.origin_name" class="absolute inset-0 h-full w-full object-cover transition duration-300 group-hover:scale-105" />
-                <div class="absolute inset-x-0 bottom-0 truncate bg-black/70 px-2 py-1 text-xs text-white">
-                  {{ img.alias_name || img.origin_name || img.name }}
-                </div>
-              </button>
-            </div>
-            <div v-else class="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-muted-foreground">
-              这个相册还没有图片，上传图片后可以回来选择封面。
             </div>
           </div>
         </div>

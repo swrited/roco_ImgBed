@@ -69,6 +69,12 @@ const router = createRouter({
           meta: { requiresAuth: true },
         },
         {
+          path: 'library/albums',
+          name: 'library.albums',
+          component: () => import('@/views/LibraryView.vue'),
+          meta: { requiresAuth: true },
+        },
+        {
           path: 'trash',
           name: 'trash',
           component: () => import('@/views/TrashView.vue'),
